@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-12T18:02:11.000Z",
+  "skill": "skills/tweak-creating-rules",
+  "commit": "1a2b3c4d",
+  "models": ["claude-sonnet-5-5"],
+  "trials": 3,
+  "costUsd": 10.95,
+  "durationMs": 912000,
+  "connectionClosed": 0,
+  "passed": 3,
+  "failed": 0,
+  "cases": {
+    "trigger-yes-mock-500": { "mode": "trigger", "passes": 3, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": {}, "passRate": 1, "ok": true },
+    "file-mock-500": { "mode": "file", "passes": 3, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": {}, "passRate": 1, "ok": true },
+    "browser-mock-empty-list": { "mode": "browser", "passes": 3, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": {}, "passRate": 1, "ok": true }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-14T09:30:00.000Z",
+  "skill": "skills/tweak-creating-rules",
+  "commit": "5e6f7a8b",
+  "models": ["claude-sonnet-5-5"],
+  "trials": 3,
+  "costUsd": 11.02,
+  "durationMs": 905000,
+  "connectionClosed": 1,
+  "passed": 3,
+  "failed": 1,
+  "cases": {
+    "trigger-yes-mock-500": { "mode": "trigger", "passes": 3, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": {}, "passRate": 1, "ok": true },
+    "file-mock-500": { "mode": "file", "passes": 2, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": { "links the import page": 1 }, "passRate": 0.6666666666666666, "ok": true },
+    "browser-mock-empty-list": { "mode": "browser", "passes": 1, "trials": 3, "minPassRate": 0.6666666666666666, "failedChecks": { "searched existing rules": 2, "links the import page": 1 }, "passRate": 0.3333333333333333, "ok": false },
+    "browser-new-case": { "mode": "browser", "passes": 3, "trials": 3, "minPassRate": 1, "failedChecks": {}, "passRate": 1, "ok": true }
+  }
+}

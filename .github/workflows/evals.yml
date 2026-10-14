@@ -1,0 +1,286 @@
+# The paid skill evals (evals/README.md), gated on the `run-checks` label.
+#
+# TRUST BOUNDARY. This workflow runs a pull request's own code next to a secret: the evals
+# execute the PR's cases and graders, and the agent under test has `Bash(node:*)` in file mode.
+# A malicious PR could therefore reach ANTHROPIC_API_KEY. Nothing here sandboxes that. The
+# mitigations are:
+#   1. an admin reviews the diff BEFORE applying `run-checks` (the label is the approval);
+#   2. the approval is for one SHA: a new push removes the label, and the run checks out
+#      exactly the labeled head SHA, never the branch;
+#   3. the key lives in the `skill-evals` environment and comes from a Console workspace with
+#      a monthly spend limit;
+#   4. the job holding the key has a read-only token and no persisted git credentials; the jobs
+#      holding write tokens never check out or execute PR code.
+#
+# Triggers:
+#   - `run-checks` applied by an admin to a PR: evaluate its head SHA, comment, set the
+#     `skill-evals` status (not required in branch protection: doc-only PRs never get it).
+#   - push to main touching skills/ or evals/: the baseline every PR is compared against.
+#   - workflow_dispatch (admins): other models or a subset, e.g. Haiku and Opus as the authoring
+#     guidance asks. A default run on main (Sonnet, 3 trials, every case) is also a baseline.
+name: skill-evals
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize]
+  push:
+    branches: [main]
+    paths: ['skills/**', 'evals/**']
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Model the agent runs on
+        default: claude-sonnet-5-5
+        type: string
+      filter:
+        description: Case ids or tags, comma-separated (empty for every case)
+        default: ''
+        type: string
+      trials:
+        description: Trials per case
+        default: '3'
+        type: string
+
+permissions: {}
+
+# One gate run per PR: a new push cancels the run for the old SHA. Any other label, and every
+# manual dispatch, lands in its own group: labeling a PR "docs" never cancels its evals, and a
+# dispatch never cancels (or is cancelled by) main's baseline run.
+concurrency:
+  group: >-
+    skill-evals-${{ github.event.pull_request.number || github.ref }}${{
+    ((github.event.action == 'labeled' && github.event.label.name != 'run-checks') ||
+    github.event_name == 'workflow_dispatch') && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  LABEL: run-checks
+  # the same pin as ci.yml; bump both together
+  CLAUDE_CODE_VERSION: 2.1.292
+  DEFAULT_MODEL: claude-sonnet-5-5
+
+jobs:
+  authorize:
+    if: github.event_name == 'pull_request_target' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    outputs:
+      approved: ${{ steps.gate.outputs.approved }}
+    steps:
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          APPLIED: ${{ github.event.label.name }}
+          SENDER: ${{ github.event.sender.login }}
+          PR: ${{ github.event.pull_request.number }}
+          HAS_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'run-checks') }}
+        run: |
+          set -euo pipefail
+          approved=false
+          # 404 means not a collaborator; any other API error stops here, label untouched
+          is_admin() {
+            local out
+            if out="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/$1/permission" --jq .permission 2>&1)"; then
+              [ "$out" = admin ]
+            elif printf '%s' "$out" | grep -q 'HTTP 404'; then
+              return 1
+            else
+              echo "::error::could not read $1's permission: $out"
+              exit 1
+            fi
+          }
+          remove_label() {
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/${LABEL}" >/dev/null 2>&1 || true
+          }
+          comment() {
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -f body="$1" >/dev/null
+          }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            if is_admin "$SENDER"; then approved=true; else echo "::error::only an admin can dispatch the evals"; fi
+          elif [ "$ACTION" = labeled ] && [ "$APPLIED" = "$LABEL" ]; then
+            if is_admin "$SENDER"; then
+              approved=true
+            else
+              remove_label
+              comment "@${SENDER} only a repository admin can apply \`${LABEL}\`: it spends the evals' API budget."
+            fi
+          elif [ "$ACTION" = synchronize ] && [ "$HAS_LABEL" = true ]; then
+            # the admin approved a SHA, not a branch
+            remove_label
+            comment "New commits, a maintainer must re-apply \`${LABEL}\`."
+          fi
+          echo "approved=${approved}" >> "$GITHUB_OUTPUT"
+
+  evals:
+    needs: authorize
+    if: >-
+      !cancelled() && (
+        github.event_name == 'push' ||
+        needs.authorize.outputs.approved == 'true'
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: skill-evals
+    permissions:
+      contents: read
+    outputs:
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - id: target
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+      # the labeled head SHA, never the branch: a push after approval is not what was reviewed
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          persist-credentials: false
+          # fork code next to a secret: see TRUST BOUNDARY at the top of this file
+          allow-unsafe-pr-checkout: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - name: Run the evals
+        # a red case is reported by the report job, not by failing here
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL: ${{ inputs.model || env.DEFAULT_MODEL }}
+          TRIALS: ${{ inputs.trials || '3' }}
+          FILTER: ${{ inputs.filter }}
+        # never above 4: the fake tab's MCP connection drops (CONNECTION_CLOSED)
+        run: |
+          node evals/run.mjs --concurrency 4 --out evals/results/pr \
+            --model "$MODEL" --trials "$TRIALS" ${FILTER:+--filter "$FILTER"}
+      - id: upload
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: skill-evals-results
+          path: evals/results/
+          if-no-files-found: warn
+          retention-days: 30
+      # what every PR is compared against: a full default run on main
+      - if: >-
+          always() && github.ref == 'refs/heads/main' && (
+            github.event_name == 'push' ||
+            (github.event_name == 'workflow_dispatch' && inputs.filter == '' &&
+             inputs.model == env.DEFAULT_MODEL && inputs.trials == '3')
+          )
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: skill-evals-baseline
+          path: evals/results/pr/summary.json
+          if-no-files-found: error
+          retention-days: 90
+
+  report:
+    needs: evals
+    # not for a run cancelled by a newer push or label: that run's report would be stale
+    if: ${{ !cancelled() && needs.evals.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # the base branch's run.mjs formats the report; no PR code is checked out here
+      contents: read
+      # the baseline artifact comes from another run
+      actions: read
+      pull-requests: write
+      statuses: write
+    steps:
+      # the base branch for pull_request_target, the pushed commit otherwise: trusted code only
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: skill-evals-results
+          path: results/run
+      # a baseline is Sonnet over every case: comparing another model or a subset against it misleads
+      - id: baseline
+        if: (inputs.model == '' || inputs.model == env.DEFAULT_MODEL) && inputs.filter == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=skill-evals-baseline&per_page=20" \
+            --jq "[.artifacts[] | select(.expired | not) | select(.workflow_run.id != ${GITHUB_RUN_ID})][0].workflow_run.id // empty")" || run_id=''
+          echo "run-id=${run_id}" >> "$GITHUB_OUTPUT"
+      - if: steps.baseline.outputs.run-id
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: skill-evals-baseline
+          path: results/baseline
+          run-id: ${{ steps.baseline.outputs.run-id }}
+          github-token: ${{ github.token }}
+      - id: report
+        env:
+          SHA: ${{ needs.evals.outputs.sha || github.event.pull_request.head.sha || github.sha }}
+          ARTIFACT_URL: ${{ needs.evals.outputs.artifact-url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          if [ -f results/run/pr/summary.json ]; then
+            node evals/run.mjs --summary results/run/pr/summary.json \
+              --compare results/baseline/summary.json \
+              --report-md report.md --sha "$SHA" --artifact-url "${ARTIFACT_URL:-$RUN_URL}"
+            code=$?
+          else
+            printf '%s\n## ❌ Skill evals did not finish\n\nNo summary was produced for %s. See the [run](%s).\n' \
+              '<!-- skill-evals-report -->' "$SHA" "$RUN_URL" > report.md
+            code=1
+          fi
+          if [ ! -s report.md ]; then
+            printf '%s\n## ❌ Skill evals: the report could not be built\n\nSee the [run](%s).\n' \
+              '<!-- skill-evals-report -->' "$RUN_URL" > report.md
+            code=1
+          fi
+          if [ "$code" = 0 ]; then state=success; else state=failure; fi
+          echo "state=${state}" >> "$GITHUB_OUTPUT"
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upsert the PR comment
+        if: github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          ids="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | startswith("<!-- skill-evals-report -->")) | .id')"
+          id="${ids%%$'\n'*}"
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" -F body=@report.md >/dev/null
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" -F body=@report.md >/dev/null
+          fi
+      - name: Set the skill-evals status
+        if: github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.evals.outputs.sha || github.event.pull_request.head.sha }}
+          STATE: ${{ steps.report.outputs.state || 'error' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -f state="$STATE" -f context=skill-evals \
+            -f description="Paid skill evals (run-checks)" -f target_url="$RUN_URL" >/dev/null
+      # the next run needs a fresh approval
+      - name: Remove the label
+        if: ${{ !cancelled() && github.event_name == 'pull_request_target' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api --method DELETE "repos/${GITHUB_REPOSITORY}/issues/${PR}/labels/${LABEL}" >/dev/null 2>&1 || true

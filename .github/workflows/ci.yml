@@ -1,0 +1,49 @@
+# Free, deterministic checks on every pull request and every push to main. No secrets.
+# This is the check to require in the `main` branch ruleset (job name: ci).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # the same pin as evals.yml; `plugin validate` needs no login or key
+  CLAUDE_CODE_VERSION: 2.1.292
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Unit tests (harness, lint, report)
+        run: npm test
+      - name: Lint skills
+        run: npm run lint:skills
+      - name: Eval cases load
+        run: node evals/run.mjs --list
+      - name: Pack
+        run: npm run pack
+      - name: Plugin and marketplace manifests
+        run: |
+          npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          # not --strict: it warns that the root CLAUDE.md is not plugin context, which is right,
+          # it is contributor context (@AGENTS.md)
+          claude plugin validate .
+          claude plugin validate .claude-plugin/plugin.json

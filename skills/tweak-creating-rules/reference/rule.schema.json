@@ -1,0 +1,606 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tweak rule",
+  "description": "One entry of a tweak import file's \"configurations\", and what window.tweak.createRules takes. Generated from src/@schema.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "interceptionPolicy": {
+          "type": "string",
+          "const": "MOCK",
+          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Matched against the request url: a substring, or a regular expression when \"isRgx\" is true."
+        },
+        "isRgx": {
+          "type": "boolean",
+          "description": "true reads \"url\" as a regular expression."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "*",
+            "POST",
+            "GET",
+            "PUT",
+            "CONNECT",
+            "OPTIONS",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "TRACE"
+          ],
+          "description": "The request method to match; * matches every method."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "What the rule is for, in markdown, shown on its row."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Markdown documentation, shown in the rule's Notes tab."
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "The HTTP status the response carries."
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Milliseconds to wait before answering."
+        },
+        "requestPayload": {
+          "type": "string",
+          "description": "The request body to match; \"\" matches any body."
+        },
+        "responseHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "The response headers, one row each."
+        },
+        "responsePayload": {
+          "type": "string",
+          "description": "The response body, as text: JSON goes in as a string."
+        },
+        "requestPayloadMatchPolicy": {
+          "type": "string",
+          "enum": [
+            "ANY",
+            "EXACT",
+            "PARTIAL"
+          ],
+          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (premium)."
+        },
+        "requestHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "A Mock reads one row: Content-Type application/x-www-form-urlencoded matches the body as form fields."
+        },
+        "isLogpointEnabled": {
+          "type": "boolean",
+          "description": "false mutes the console group tweak prints for each interception (premium)."
+        },
+        "isEditBeforeSendEnabled": {
+          "type": "boolean",
+          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (premium)."
+        },
+        "editBeforeSendStage": {
+          "type": "string",
+          "enum": [
+            "REQUEST",
+            "REQUEST_AND_RESPONSE",
+            "RESPONSE"
+          ],
+          "description": "Where Edit before send pauses: REQUEST (default), RESPONSE, or REQUEST_AND_RESPONSE (both)."
+        },
+        "responseHook": {
+          "type": "string",
+          "maxLength": 20000,
+          "description": "The body of a function that rewrites the response (premium). See hooks.md."
+        },
+        "requestHook": {
+          "type": "string",
+          "maxLength": 20000,
+          "description": "The body of a function that rewrites the request (premium). See hooks.md."
+        }
+      },
+      "required": [
+        "interceptionPolicy",
+        "url",
+        "isRgx",
+        "method",
+        "status",
+        "delay",
+        "requestPayload",
+        "responseHeaders",
+        "responsePayload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "interceptionPolicy": {
+          "type": "string",
+          "const": "PATCH",
+          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Matched against the request url: a substring, or a regular expression when \"isRgx\" is true."
+        },
+        "isRgx": {
+          "type": "boolean",
+          "description": "true reads \"url\" as a regular expression."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "*",
+            "POST",
+            "GET",
+            "PUT",
+            "CONNECT",
+            "OPTIONS",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "TRACE"
+          ],
+          "description": "The request method to match; * matches every method."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "What the rule is for, in markdown, shown on its row."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Markdown documentation, shown in the rule's Notes tab."
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "number",
+              "const": 0
+            },
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            }
+          ],
+          "description": "The status the page sees; 0 forwards the server's."
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Milliseconds to wait before answering."
+        },
+        "requestPayload": {
+          "type": "string",
+          "description": "The request body to match (\"Filter by\"); \"\" matches any body."
+        },
+        "responseHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "Headers set on the server's response, one row each."
+        },
+        "responsePayload": {
+          "type": "string",
+          "description": "The body the page sees instead of the server's; \"\" forwards the server's."
+        },
+        "requestPayloadMatchPolicy": {
+          "type": "string",
+          "enum": [
+            "ANY",
+            "EXACT",
+            "PARTIAL"
+          ],
+          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (premium)."
+        },
+        "outgoingRequestPayload": {
+          "type": "string",
+          "description": "The body sent to the server instead of the page's (\"Replace by\"); \"\" sends the page's."
+        },
+        "requestHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "Headers set on the request before it is sent, one row each."
+        },
+        "isLogpointEnabled": {
+          "type": "boolean",
+          "description": "false mutes the console group tweak prints for each interception (premium)."
+        },
+        "isEditBeforeSendEnabled": {
+          "type": "boolean",
+          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (premium)."
+        },
+        "editBeforeSendStage": {
+          "type": "string",
+          "enum": [
+            "REQUEST",
+            "REQUEST_AND_RESPONSE",
+            "RESPONSE"
+          ],
+          "description": "Where Edit before send pauses: REQUEST (default), RESPONSE, or REQUEST_AND_RESPONSE (both)."
+        },
+        "responseHook": {
+          "type": "string",
+          "maxLength": 20000,
+          "description": "The body of a function that rewrites the response (premium). See hooks.md."
+        },
+        "requestHook": {
+          "type": "string",
+          "maxLength": 20000,
+          "description": "The body of a function that rewrites the request (premium). See hooks.md."
+        }
+      },
+      "required": [
+        "interceptionPolicy",
+        "url",
+        "isRgx",
+        "method",
+        "status",
+        "delay",
+        "requestPayload",
+        "responseHeaders",
+        "responsePayload"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "interceptionPolicy": {
+          "type": "string",
+          "const": "MODIFY_HEADERS",
+          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Matched against the request url: a substring, or a regular expression when \"isRgx\" is true."
+        },
+        "isRgx": {
+          "type": "boolean",
+          "description": "true reads \"url\" as a regular expression."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "*",
+            "POST",
+            "GET",
+            "PUT",
+            "CONNECT",
+            "OPTIONS",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "TRACE"
+          ],
+          "description": "The request method to match; * matches every method."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "What the rule is for, in markdown, shown on its row."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Markdown documentation, shown in the rule's Notes tab."
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "requestPayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "responseHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "set",
+                  "append",
+                  "remove"
+                ]
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "What the rule does to response headers: one row each, \"operation\" set (default), append or remove."
+        },
+        "responsePayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "requestHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "set",
+                  "append",
+                  "remove"
+                ]
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "What the rule does to request headers: one row each, \"operation\" set (default), append or remove."
+        },
+        "headerRuleScope": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_TAB",
+            "GLOBAL"
+          ],
+          "description": "ACTIVE_TAB applies while tweak runs on that tab; GLOBAL on every tab (window.tweak refuses it)."
+        }
+      },
+      "required": [
+        "interceptionPolicy",
+        "url",
+        "isRgx",
+        "method",
+        "status",
+        "delay",
+        "requestPayload",
+        "responseHeaders"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "interceptionPolicy": {
+          "type": "string",
+          "const": "REDIRECT",
+          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Matched against the request url: a substring, or a regular expression when \"isRgx\" is true."
+        },
+        "isRgx": {
+          "type": "boolean",
+          "description": "true reads \"url\" as a regular expression."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "*",
+            "POST",
+            "GET",
+            "PUT",
+            "CONNECT",
+            "OPTIONS",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "TRACE"
+          ],
+          "description": "The request method to match; * matches every method."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "What the rule is for, in markdown, shown on its row."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Markdown documentation, shown in the rule's Notes tab."
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "requestPayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "responseHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "responsePayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "redirectUrl": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Where the request goes: an http(s) url, or a path, query or fragment starting with /, ? or #. With \"isRgx\", an absolute url where \\1 is the first capture group."
+        },
+        "redirectTargetType": {
+          "type": "string",
+          "enum": [
+            "ALL",
+            "XHR",
+            "DOCUMENT",
+            "IFRAME",
+            "SCRIPT",
+            "STYLESHEET",
+            "IMAGE",
+            "MEDIA",
+            "FONT"
+          ],
+          "description": "Which requests the redirect catches: ALL, or one resource type."
+        },
+        "headerRuleScope": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_TAB",
+            "GLOBAL"
+          ],
+          "description": "ACTIVE_TAB applies while tweak runs on that tab; GLOBAL on every tab (window.tweak refuses it)."
+        }
+      },
+      "required": [
+        "interceptionPolicy",
+        "url",
+        "isRgx",
+        "method",
+        "status",
+        "delay",
+        "requestPayload",
+        "responseHeaders",
+        "redirectUrl"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

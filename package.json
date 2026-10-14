@@ -1,0 +1,22 @@
+{
+  "name": "tweak-skills",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agent Skills for tweak, the browser extension that mocks, modifies, redirects and sets headers on a page's requests.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tweak-extension/skills.git"
+  },
+  "homepage": "https://github.com/tweak-extension/skills#readme",
+  "engines": {
+    "node": ">=22.2"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "lint:skills": "node scripts/lint-skills.mjs",
+    "eval": "node evals/run.mjs",
+    "pack": "node scripts/pack.mjs"
+  }
+}

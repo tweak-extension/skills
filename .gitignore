@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.zip
+evals/results/
+.DS_Store
+.env
+.env.*

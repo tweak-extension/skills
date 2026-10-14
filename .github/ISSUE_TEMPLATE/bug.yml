@@ -1,0 +1,36 @@
+name: The agent did the wrong thing
+description: A session where the skill led an agent astray. Every bug becomes an eval case.
+labels: [bug]
+body:
+  - type: textarea
+    id: prompt
+    attributes:
+      label: What you asked
+      description: The prompt, word for word.
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What the agent did
+      description: What went wrong. Paste the rule it wrote or the calls it made if you have them; remove any secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What it should have done
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and model
+      placeholder: Claude in Chrome, Sonnet / Claude Code 2.x, Opus / ...
+    validations:
+      required: true
+  - type: input
+    id: tweak
+    attributes:
+      label: tweak version and plan
+      placeholder: 9.5.0, free

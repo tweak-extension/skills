@@ -1,0 +1,15 @@
+{
+  "name": "tweak-extension",
+  "owner": {
+    "name": "tweak-extension",
+    "url": "https://tweak-extension.com"
+  },
+  "description": "Agent Skills for the tweak browser extension.",
+  "plugins": [
+    {
+      "name": "tweak",
+      "source": ".",
+      "description": "Creates tweak rules (Mock, Modify, headers, Redirect) from plain English, in the browser or as an import file."
+    }
+  ]
+}
