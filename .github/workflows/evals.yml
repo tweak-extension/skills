@@ -121,7 +121,9 @@ jobs:
 
   # No usable key (a fork, a fresh clone, the secret not set yet, a revoked or out-of-credit
   # key): skip the evals and the report instead of failing 153 runs at $0.00. This job never
-  # checks out code; it only asks the API whether the key works (listing models costs nothing).
+  # checks out code. The check is the cheapest call there is: GET /v1/models?limit=1 reads model
+  # metadata, bills no tokens and runs no model (unlike a 1-token message, which bills; and
+  # count_tokens, also free, needs a POST body and a model id that could go stale).
   credentials:
     needs: authorize
     if: >-
@@ -145,7 +147,7 @@ jobs:
             reason="ANTHROPIC_API_KEY is not set in the skill-evals environment"
           else
             status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 \
-              https://api.anthropic.com/v1/models \
+              'https://api.anthropic.com/v1/models?limit=1' \
               --header "x-api-key: ${ANTHROPIC_API_KEY}" \
               --header 'anthropic-version: 2023-06-01' || true)"
             case "$status" in
