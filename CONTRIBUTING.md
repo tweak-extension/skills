@@ -3,21 +3,28 @@
 Thanks for helping. A skill is prose an agent follows, so a one-word edit can change what the
 agent does. That shapes how changes land here.
 
+## You never pay for evals
+
+**You don't need an API key, and you never run the paid evals on your own budget.** Open your pull
+request with the free checks green (`npm test && npm run lint:skills`). If a maintainer decides to
+take the change forward, they review it and run the evals on CI, at the project's expense, by
+applying the `run-checks` label. The results arrive as a comment on your pull request.
+
 ## Evals first
 
 Following the platform's [authoring guidance](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
-("Build evaluations first"): before you change the skill, add the eval case that shows the
-problem, and watch it fail on the current text.
+("Build evaluations first"), a change to the skill comes with the eval case that shows the problem.
+Write the case; the maintainer's CI run proves it fails on the current text and passes on yours.
 
 - **Every bug becomes a case.** When a real session goes wrong, add its prompt to
   `evals/cases/` with a check that names what went wrong. See
-  [evals/README.md](evals/README.md#adding-a-case).
-- **Prove the case measures something.** Run it on the unchanged skill several times before you
-  trust it: `npm run eval -- --filter <id> --trials 5`. A case that fails one run in three on an
+  [evals/README.md](evals/README.md#adding-a-case). `npm test` checks that every case loads and
+  grades without a model.
+- **A case must measure something.** Before trusting a new case, the maintainer runs it several
+  times on the unchanged skill (`--filter <id> --trials 5`): one that fails one run in three on an
   unchanged skill is measuring noise.
-- **Compare pass rates, not single runs.** The model is not deterministic:
-  `npm run eval -- --ref main --out evals/results/main`, then
-  `npm run eval -- --compare evals/results/main/summary.json`.
+- **Pass rates, not single runs.** The model is not deterministic, so CI compares each case's pass
+  rate with `main`'s.
 - Keep prose changes and moves apart: a pure move or rename should not change behaviour.
 
 ## Running things
@@ -28,24 +35,22 @@ Node from [`.nvmrc`](.nvmrc). There are no dependencies to install.
 npm test               # the harness, the lint and the report, no model calls
 npm run lint:skills    # the authoring checklist and the example rules
 npm run pack           # dist/<skill>.zip, never committed
-npm run eval           # the paid evals: needs the `claude` CLI and a key or login
 ```
 
-If you have your own Anthropic API key (or a signed-in `claude` CLI), you can run the evals
-locally. A full run is 51 cases × 3 trials, about $11 on Sonnet and 15 minutes. Keep
-`--concurrency` at 4 or below.
+`npm run eval` runs the paid evals locally (it needs the `claude` CLI and a key). It's there for
+maintainers; contributors don't need it.
 
 ## The `run-checks` label
 
-The free checks (`ci`) run on every pull request. The paid evals run only when a maintainer
-applies the **`run-checks`** label, and only a repository admin can apply it. Why:
+The free checks (`ci`) run on every pull request. The paid evals run only when a repository admin
+applies the **`run-checks`** label, because:
 
-- the evals spend a real API budget;
-- they run the pull request's own cases and graders next to the API key, so a maintainer reviews
-  the diff before labeling. The label approves that exact commit: a new push removes it.
+- they spend the project's API budget;
+- they run the pull request's own cases and graders next to the API key, so the maintainer
+  reviews the diff first. The label approves that exact commit: a new push removes it, and a
+  maintainer re-applies it.
 
-Results arrive as a sticky comment with each case's pass rate next to `main`'s baseline. You
-don't need to ask for the label on a docs-only change.
+Docs-only changes never need it.
 
 ## License
 

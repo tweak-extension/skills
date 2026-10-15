@@ -12,6 +12,9 @@
 #   4. the job holding the key has a read-only token and no persisted git credentials; the jobs
 #      holding write tokens never check out or execute PR code.
 #
+# With no valid key the `credentials` job skips everything after it, so a fork or a repo
+# without the secret shows skipped checks, not 153 failed runs.
+#
 # Triggers:
 #   - `run-checks` applied by an admin to a PR: evaluate its head SHA, comment, set the
 #     `skill-evals` status (not required in branch protection: doc-only PRs never get it).
@@ -116,13 +119,50 @@ jobs:
           fi
           echo "approved=${approved}" >> "$GITHUB_OUTPUT"
 
-  evals:
+  # No usable key (a fork, a fresh clone, the secret not set yet, a revoked or out-of-credit
+  # key): skip the evals and the report instead of failing 153 runs at $0.00. This job never
+  # checks out code; it only asks the API whether the key works (listing models costs nothing).
+  credentials:
     needs: authorize
     if: >-
       !cancelled() && (
         github.event_name == 'push' ||
         needs.authorize.outputs.approved == 'true'
       )
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: skill-evals
+    permissions: {}
+    outputs:
+      valid: ${{ steps.check.outputs.valid }}
+    steps:
+      - id: check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          valid=false
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            reason="ANTHROPIC_API_KEY is not set in the skill-evals environment"
+          else
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 \
+              https://api.anthropic.com/v1/models \
+              --header "x-api-key: ${ANTHROPIC_API_KEY}" \
+              --header 'anthropic-version: 2023-06-01' || true)"
+            case "$status" in
+              200 | 429) valid=true ;;
+              401 | 403) reason="ANTHROPIC_API_KEY was refused (HTTP ${status})" ;;
+              *) reason="could not check ANTHROPIC_API_KEY (HTTP ${status:-none})" ;;
+            esac
+          fi
+          if [ "$valid" = false ]; then
+            echo "::warning::Skill evals skipped: ${reason}."
+            echo "Skill evals skipped: ${reason}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "valid=${valid}" >> "$GITHUB_OUTPUT"
+
+  evals:
+    needs: credentials
+    if: ${{ !cancelled() && needs.credentials.outputs.valid == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: skill-evals
@@ -235,10 +275,11 @@ jobs:
         run: |
           set -uo pipefail
           if [ -f results/run/pr/summary.json ]; then
+            # the runner's bash has -e: a red case must not end the step before the report
+            code=0
             node evals/run.mjs --summary results/run/pr/summary.json \
               --compare results/baseline/summary.json \
-              --report-md report.md --sha "$SHA" --artifact-url "${ARTIFACT_URL:-$RUN_URL}"
-            code=$?
+              --report-md report.md --sha "$SHA" --artifact-url "${ARTIFACT_URL:-$RUN_URL}" || code=$?
           else
             printf '%s\n## ❌ Skill evals did not finish\n\nNo summary was produced for %s. See the [run](%s).\n' \
               '<!-- skill-evals-report -->' "$SHA" "$RUN_URL" > report.md
