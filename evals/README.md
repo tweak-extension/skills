@@ -20,13 +20,13 @@ harness itself is unit tested without a model (`test/evals.test.mjs`, in `npm te
 
 ## Running
 
-Needs the `claude` CLI on the PATH, signed in or with `ANTHROPIC_API_KEY` set. A full run (153 runs) costs about $11 on
+Needs the `claude` CLI on the PATH, signed in or with `ANTHROPIC_API_KEY` set. A full run (159 runs) costs about $11 on
 Sonnet ($0.60 on Haiku, $18 on Opus) and takes about 15 minutes at `--concurrency 4`. Keep it
 at 4 or below: around 12 concurrent agents the fake tab's MCP connection starts dropping
 (`CONNECTION_CLOSED` in the transcript), and those runs read as behaviour failures.
 
 ```bash
-npm run eval                                            # all 51 cases, 3 trials each
+npm run eval                                            # all 53 cases, 3 trials each
 npm run eval -- --filter browser                        # ids or tags containing "browser"
 npm run eval -- --filter trigger --trials 5
 npm run eval -- --mode file --model claude-opus-5-5     # default model is claude-sonnet-5-5
@@ -97,7 +97,9 @@ The three modes:
 - **`trigger`**: stops after two turns. The only question is whether the skill loaded.
 - **`file`**: no browser, so the skill must hand over JSON and the import page link. Graded on
   `tweak-rules.json`, or on the last rule JSON block in the answer when no file was written.
-  Every rule must pass `validate-rules.mjs`.
+  Every rule must pass `validate-rules.mjs`. A case with `devtools: true` also gets a fake Chrome DevTools MCP
+  server (`lib/devtools-server.mjs`): a browser of the agent's own, without tweak, that it must
+  not open.
 - **`browser`**: an MCP server (`lib/page-server.mjs`) exposes `run_page_script`, standing in
   for Claude in Chrome. The tab's `window.__TWEAK_SDK__` is `lib/fake-tweak.mjs`, scripted by
   the case's `scenario`: plan, run and capture state, existing rules, captured requests,
@@ -121,6 +123,7 @@ names what went wrong.
   prompt: 'Use tweak to make the getCart query fail with a 500.',
   scenario: shop({ requests: [...] }),      // browser only: the fake tab
   files: { 'schema.graphql': '...' },       // optional: seeded into the project directory
+  devtools: true,                           // optional, file mode: a fake Chrome DevTools MCP is installed and allowed
   minPassRate: 1,                           // optional: stricter than the default 2/3
   grade: (run, { check }) => {
     check('a PARTIAL body match', createdRules(run)[0]?.requestPayloadMatchPolicy === 'PARTIAL')

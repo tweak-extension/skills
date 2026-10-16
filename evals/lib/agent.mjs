@@ -24,6 +24,9 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const PAGE_SERVER = path.join(HERE, 'page-server.mjs')
+const DEVTOOLS_SERVER = path.join(HERE, 'devtools-server.mjs')
+// a browser-automation MCP server the user has installed and allowed: it launches its own browser
+export const DEVTOOLS_TOOL_PREFIX = 'mcp__chrome-devtools__'
 const PAGE_TOOL = 'mcp__browser__run_page_script'
 const FILE_TOOLS = ['Skill', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash(node:*)', 'Bash(cat:*)', 'Bash(ls:*)']
 // the browser agent has no shell: Claude in Chrome does not either, and a shell invites the file path
@@ -141,12 +144,23 @@ export function runCase(testCase, { skillDir, model, budgetUsd, timeoutMs, trans
     ...DISALLOWED,
     '--allowedTools',
     ...(testCase.mode === 'browser' ? BROWSER_TOOLS : FILE_TOOLS),
+    // allowed as a user who installed it would have it: the case grades whether the agent reaches for it
+    ...(testCase.devtools ? ['mcp__chrome-devtools'] : []),
   ]
   if (model) {
     args.push('--model', model)
   }
   if (budgetUsd) {
     args.push('--max-budget-usd', String(budgetUsd))
+  }
+  const devtoolsLog = path.join(meta, 'devtools-calls.jsonl')
+  if (testCase.devtools) {
+    const config = {
+      mcpServers: {
+        'chrome-devtools': { command: process.execPath, args: [DEVTOOLS_SERVER], env: { EVAL_DEVTOOLS_LOG: devtoolsLog } },
+      },
+    }
+    args.push('--mcp-config', JSON.stringify(config))
   }
   if (testCase.mode === 'browser') {
     const scenarioFile = path.join(meta, 'scenario.json')
@@ -193,6 +207,7 @@ export function runCase(testCase, { skillDir, model, budgetUsd, timeoutMs, trans
       }
       const transcript = parseTranscript(lines)
       const sdkCalls = readLog(sdkLog)
+      const devtoolsCalls = readLog(devtoolsLog)
       const files = readWorkdirFiles(work, testCase.files ?? {})
       // everything a grader needs is read; the transcript file is what is left to debug with
       rmSync(work, { recursive: true, force: true })
@@ -200,6 +215,7 @@ export function runCase(testCase, { skillDir, model, budgetUsd, timeoutMs, trans
         ...transcript,
         skillInvoked: skillWasInvoked(transcript.toolUses, skillName),
         sdkCalls,
+        devtoolsCalls,
         files,
         durationMs: Date.now() - started,
         error: error ?? (transcript.stopReason === 'no result' ? stderr.trim().slice(-500) || 'no result' : null),

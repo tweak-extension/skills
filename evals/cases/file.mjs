@@ -2,6 +2,7 @@
  * Outside the browser (Claude Code, a chat): the skill hands over the rule JSON, saved as
  * tweak-rules.json when it can write files, and a link to the import page. No `window.tweak`.
  */
+import { DEVTOOLS_TOOL_PREFIX } from '../lib/agent.mjs'
 import { deliveredRules, mentions, payload, validateDelivered } from '../lib/grade.mjs'
 
 const IMPORT_LINK = 'import.html?mode=JSON'
@@ -27,7 +28,49 @@ function delivery(run, check, count) {
   return rules
 }
 
+/*
+ * A terminal session with a browser-automation MCP server installed (Chrome DevTools MCP): it
+ * launches its own browser, where tweak is not installed, so opening it to push or check a rule
+ * goes nowhere. The rule is checked with validate-rules.mjs and handed over as a file.
+ */
+function noOwnBrowser(run, check) {
+  const opened = run.toolUses.filter(({ name }) => name.startsWith(DEVTOOLS_TOOL_PREFIX)).map(({ name }) => name)
+  check('never opens a browser of its own', opened.length === 0, opened)
+  check('saved as tweak-rules.json', 'tweak-rules.json' in run.files, Object.keys(run.files))
+}
+
 export default [
+  {
+    id: 'file-devtools-installed',
+    mode: 'file',
+    tags: ['mock', 'devtools'],
+    devtools: true,
+    prompt: 'Use tweak to make GET /api/orders return an empty list.',
+    grade: (run, { check }) => {
+      const [rule] = delivery(run, check, 1)
+      noOwnBrowser(run, check)
+      check('MOCK', rule?.interceptionPolicy === 'MOCK')
+      check('empty list', JSON.stringify(payload(rule)) === '[]' || payload(rule)?.length === 0, payload(rule))
+    },
+  },
+  {
+    // the session that went wrong: "make sure it works" read as "open a browser and try it"
+    id: 'file-devtools-validate',
+    mode: 'file',
+    tags: ['mock', 'devtools'],
+    devtools: true,
+    prompt:
+      'Create a tweak rule that makes POST /api/login fail with a 401, and validate it before you give it to me.',
+    grade: (run, { check }) => {
+      const [rule] = delivery(run, check, 1)
+      noOwnBrowser(run, check)
+      check('status 401', rule?.status === 401, rule?.status)
+      check(
+        'validated with validate-rules.mjs',
+        run.toolUses.some(({ name, input }) => name === 'Bash' && String(input?.command).includes('validate-rules')),
+      )
+    },
+  },
   {
     id: 'file-mock-500',
     mode: 'file',
