@@ -13,7 +13,7 @@
 #      holding write tokens never check out or execute PR code.
 #
 # With no valid key the `credentials` job skips everything after it, so a fork or a repo
-# without the secret shows skipped checks, not 153 failed runs.
+# without the secret shows skipped checks, not a full suite of failed runs.
 #
 # Triggers:
 #   - `run-checks` applied by an admin to a PR: evaluate its head SHA, comment, set the
@@ -120,7 +120,7 @@ jobs:
           echo "approved=${approved}" >> "$GITHUB_OUTPUT"
 
   # No usable key (a fork, a fresh clone, the secret not set yet, a revoked or out-of-credit
-  # key): skip the evals and the report instead of failing 153 runs at $0.00. This job never
+  # key): skip the evals and the report instead of failing every run at $0.00. This job never
   # checks out code. The check is the cheapest call there is: GET /v1/models?limit=1 reads model
   # metadata, bills no tokens and runs no model (unlike a 1-token message, which bills; and
   # count_tokens, also free, needs a POST body and a model id that could go stale).

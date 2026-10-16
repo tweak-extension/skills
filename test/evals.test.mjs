@@ -7,6 +7,7 @@ import { createInterface } from 'node:readline'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { parseTranscript, skillWasInvoked } from '../evals/lib/agent.mjs'
+import { createBrowser, TOOLS } from '../evals/lib/devtools-server.mjs'
 import { createFakeTweak } from '../evals/lib/fake-tweak.mjs'
 import { createdRules, deliveredRules } from '../evals/lib/grade.mjs'
 import { createPage } from '../evals/lib/page-server.mjs'
@@ -300,6 +301,27 @@ describe('fake tab', () => {
   })
 })
 
+describe('fake devtools browser', () => {
+  it('offers the tools Chrome DevTools MCP does, and has no tweak in its pages', async () => {
+    const browser = createBrowser()
+
+    assert.ok(['new_page', 'evaluate_script', 'take_snapshot'].every((name) => TOOLS.some((t) => t.name === name)))
+    await browser('new_page', { url: 'https://shop.test/' })
+    assert.equal(await browser('list_pages'), '0: https://shop.test/ [selected]')
+    assert.equal(
+      await browser('evaluate_script', { function: '() => ({ tweak: typeof window.__TWEAK_SDK__ })' }),
+      '{"tweak":"undefined"}',
+    )
+  })
+
+  it('gives the devtools cases the server, allowed', () => {
+    const cases = CASES.filter((testCase) => testCase.devtools)
+
+    assert.ok(cases.length >= 2)
+    cases.forEach((testCase) => assert.equal(testCase.mode, 'file'))
+  })
+})
+
 describe('graders', () => {
   it('read the delivered rules from the file first, then the last rule block of the answer', () => {
     const text = '```json\n{"configurations":[{"interceptionPolicy":"MOCK","url":"/x"}]}\n```'
@@ -316,6 +338,14 @@ describe('graders', () => {
     ]
 
     assert.deepEqual(createdRules(run({ sdkCalls })), [{ interceptionPolicy: 'REDIRECT', url: 'a', redirectUrl: '/b' }])
+  })
+
+  it('fail a devtools case that opened its own browser', () => {
+    const testCase = CASES.find((entry) => entry.id === 'file-devtools-installed')
+    const opened = run({ toolUses: [{ name: 'mcp__chrome-devtools__new_page', input: { url: 'https://a.test' } }] })
+
+    assertSomeMatch(grade(testCase, opened).checks, { name: 'never opens a browser of its own', pass: false })
+    assertSomeMatch(grade(testCase, run()).checks, { name: 'never opens a browser of its own', pass: true })
   })
 
   it('fail a run that loaded another copy of the skill, or never finished', () => {

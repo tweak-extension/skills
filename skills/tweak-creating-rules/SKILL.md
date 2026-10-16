@@ -13,7 +13,7 @@ tweak rules and puts them where tweak can use them.
 Decide this before anything else, because it changes every step after it.
 
 - **You can run JavaScript in the user's browser tab** (Claude in Chrome, or any tool that
-  runs a page script) → **push the rule into tweak yourself.** Follow
+  runs a page script in the tab the user is looking at) → **push the rule into tweak yourself.** Follow
   [reference/browser.md](reference/browser.md) from its preflight. Do not print the rule
   JSON as your answer, do not write a file or an artifact, and do not ask whether to push:
   push, then report what tweak created. Two exceptions: a rule the user already has does
@@ -22,6 +22,10 @@ Decide this before anything else, because it changes every step after it.
   block with the import link and steps (step 6, "Otherwise") instead.
 - **You cannot** (Claude Code, a chat) → hand the user the JSON and a link to tweak's import
   page, as described at the end of this page.
+- **A browser you would launch is not the user's tab.** Browser-automation tools in a terminal
+  (Chrome DevTools MCP, Playwright, Puppeteer) open a fresh browser without tweak in it. Never
+  open one to push, test or validate a rule unless the user explicitly asks for that browser:
+  check the rule with `validate-rules.mjs` (step 5) and deliver it as a file (step 6).
 
 ## Workflow
 
