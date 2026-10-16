@@ -76,10 +76,10 @@ the fake tab.
 ## In CI
 
 `.github/workflows/evals.yml` runs the full suite (Sonnet, 3 trials) on a pull request when an
-admin applies the `run-checks` label, and on every push to `main` that touches `skills/` or
-`evals/` (the baseline, kept 90 days as the `skill-evals-baseline` artifact). A new push to the
-pull request removes the label: the approval is for one commit. `workflow_dispatch` runs another
-model or a subset. The workflow's header explains the trust boundary.
+admin applies the `run-checks` label. It never runs on a push or merge to `main`. A new push to
+the pull request removes the label: the approval is for one commit. `workflow_dispatch` runs
+another model or a subset; run on `main` with default inputs, it produces the baseline PRs are
+compared against (`skill-evals-baseline`, kept 90 days). The workflow's header explains the trust boundary.
 
 ## How a run works
 
