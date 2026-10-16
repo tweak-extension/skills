@@ -54,7 +54,6 @@ export default [
     },
   },
   {
-    // the session that went wrong: "make sure it works" read as "open a browser and try it"
     id: 'file-devtools-validate',
     mode: 'file',
     tags: ['mock', 'devtools'],
