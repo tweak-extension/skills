@@ -30,7 +30,7 @@ substring cannot say it; the syntax is RE2 (no lookarounds, no backreferences).
 | `MEDIA`              | audio / video      |
 | `FONT`               | fonts              |
 
-Every type is available on every plan. Prefer the narrowest one that fits: `ALL` also
+Every type is a free feature. Prefer the narrowest one that fits: `ALL` also
 catches the page itself when `url` matches its address.
 
 ## Where it goes

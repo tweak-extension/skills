@@ -40,18 +40,18 @@ Decide this before anything else, because it changes every step after it.
 
 **2. Pick the type.**
 
-| The user wants                                                                               | Type                       | Plan    | Read                                           |
-| -------------------------------------------------------------------------------------------- | -------------------------- | ------- | ---------------------------------------------- |
-| A made-up response: an error, an empty or edge-case payload, latency                         | Mock (`MOCK`)              | free    | [reference/mock.md](reference/mock.md)         |
-| The server's real response with something changed: one field, the status, a delay; or the request changed before it is sent | Modify (`PATCH`) | premium | [reference/modify.md](reference/modify.md)     |
-| A request or response header set, appended or removed                                        | Header (`MODIFY_HEADERS`)  | free    | [reference/headers.md](reference/headers.md)   |
-| A request loaded from somewhere else: another server, a local build, a placeholder           | Redirect (`REDIRECT`)      | free    | [reference/redirect.md](reference/redirect.md) |
-| A response computed by code: random data, values derived from the request or the real body   | Mock or Modify + hook      | premium | [reference/hooks.md](reference/hooks.md)       |
-| To pause the request or its response and edit it **by hand**, live, before it goes on         | Mock or Modify + Edit before send | premium | [reference/edit-before-send.md](reference/edit-before-send.md) |
+| The user wants                                                                               | Type                       | Free?        | Read                                           |
+| -------------------------------------------------------------------------------------------- | -------------------------- | ------------ | ---------------------------------------------- |
+| A made-up response: an error, an empty or edge-case payload, latency                         | Mock (`MOCK`)              | yes          | [reference/mock.md](reference/mock.md)         |
+| The server's real response with something changed: one field, the status, a delay; or the request changed before it is sent | Modify (`PATCH`) | check access | [reference/modify.md](reference/modify.md)     |
+| A request or response header set, appended or removed                                        | Header (`MODIFY_HEADERS`)  | yes          | [reference/headers.md](reference/headers.md)   |
+| A request loaded from somewhere else: another server, a local build, a placeholder           | Redirect (`REDIRECT`)      | yes          | [reference/redirect.md](reference/redirect.md) |
+| A response computed by code: random data, values derived from the request or the real body   | Mock or Modify + hook      | check access | [reference/hooks.md](reference/hooks.md)       |
+| To pause the request or its response and edit it **by hand**, live, before it goes on         | Mock or Modify + Edit before send | check access | [reference/edit-before-send.md](reference/edit-before-send.md) |
 
 - **Mock or Modify?** Modify when the answer must stay the server's own (live data, one field
-  changed); Mock when it can be made up. On the free plan offer a Mock built from the real
-  response instead of Modify.
+  changed); Mock when it can be made up. When the user's tweak has no Modify, offer a Mock
+  built from the real response instead.
 - **Header or Modify?** A header-only ask is a header rule: free, applied by the browser to
   every request type, and it can set headers a page cannot (`User-Agent`, `Accept-Encoding`).
 - **"Pause it and let me edit it myself"** is Edit before send, a switch on a Mock or Modify
@@ -61,8 +61,24 @@ Decide this before anything else, because it changes every step after it.
   a Redirect or a header rule.
 
 Every type writes the same object, tweak's import format, so one ask can need rules of
-several types. In the browser, confirm what the user's plan allows with `features()` rather
-than guessing. `{{variables}}` cannot be written by an agent: write the values out.
+several types. `{{variables}}` cannot be written by an agent: write the values out.
+
+**Free features, and checking the rest.** Every tweak has these, so use them without asking:
+
+- Mock rules: url, method, status, response body, response headers, delay, and body matching
+  `EXACT` (the default) or `ANY`, a form body included.
+- Header rules: every operation, on the request or the response.
+- Redirect rules: every Catch type.
+- Capturing and searching requests, running tweak, switching rules on or off, labels and notes.
+
+Anything else depends on the user's tweak: Modify, hooks, `PARTIAL` body matching,
+`isLogpointEnabled: false`, Edit before send. Check it before you build on it:
+
+- **In the browser:** read its entry in `features()` (browser.md step 1). No entry, or no
+  `features()` at all, means push it and handle a `PREMIUM_REQUIRED` refusal.
+- **Otherwise:** ask the user whether their tweak has it ("Does your tweak have Modify
+  rules?") and stop until they answer, unless they already said so. Then write the rule, or
+  the free way the type's reference gives.
 
 **3. Look for a rule the user already has** (browser only): `searchRules`, as
 [reference/browser.md](reference/browser.md) step 3 describes. When one already does the job,
@@ -110,8 +126,8 @@ request away.
   other Chromium browser. Firefox gives every install its own address and the Edge Add-ons
   store build has another id, so there tell the user to open tweak, **⋮ > Import**, and paste
   there instead. A page with no paste box is an older tweak: save the JSON as a `.json` file
-  and pick it with **Choose a file**. A Modify rule needs premium: on the free plan tweak
-  imports it as a Mock, so say so when you hand one over.
+  and pick it with **Choose a file**. A tweak without Modify imports a Modify rule as a Mock,
+  so say so when you hand one over.
 
 ## Rules of engagement
 

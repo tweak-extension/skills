@@ -2,7 +2,7 @@
 
 A hook is JavaScript tweak runs when a Mock or Modify rule matches. A **response hook**
 computes the body the page receives; a **request hook** rewrites the request before it goes
-out. Both are tweak premium.
+out. Neither is a free feature: check access first (SKILL.md, "Free features").
 
 On a **Mock** the response hook starts from the rule's `responsePayload`. On a **Modify** rule
 with `responsePayload` left `""` it starts from **the server's real body**: the way to change
@@ -15,8 +15,8 @@ the user code to paste when the call can carry it.
 
 Only a build without `features` (browser.md, step 0) cannot take a hook from an agent. There,
 push the rule with the payload the hook starts from, give the user the hook body to paste into
-the rule's **Response hook** tab, and tell them updating tweak lets you do it yourself. On the
-free plan (`reason: 'PLAN'`), write the values out in `responsePayload` instead.
+the rule's **Response hook** tab, and tell them updating tweak lets you do it yourself. When the
+user's tweak has no hooks (`reason: 'PLAN'`), write the values out in `responsePayload` instead.
 
 ## Contents
 

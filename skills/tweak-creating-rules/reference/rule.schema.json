@@ -9,7 +9,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "MOCK",
-          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
         },
         "url": {
           "type": "string",
@@ -95,7 +95,7 @@
             "EXACT",
             "PARTIAL"
           ],
-          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (premium)."
+          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (not a free feature)."
         },
         "requestHeaders": {
           "type": "array",
@@ -121,11 +121,11 @@
         },
         "isLogpointEnabled": {
           "type": "boolean",
-          "description": "false mutes the console group tweak prints for each interception (premium)."
+          "description": "false mutes the console group tweak prints for each interception (not a free feature)."
         },
         "isEditBeforeSendEnabled": {
           "type": "boolean",
-          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (premium)."
+          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (not a free feature)."
         },
         "editBeforeSendStage": {
           "type": "string",
@@ -139,12 +139,12 @@
         "responseHook": {
           "type": "string",
           "maxLength": 20000,
-          "description": "The body of a function that rewrites the response (premium). See hooks.md."
+          "description": "The body of a function that rewrites the response (not a free feature). See hooks.md."
         },
         "requestHook": {
           "type": "string",
           "maxLength": 20000,
-          "description": "The body of a function that rewrites the request (premium). See hooks.md."
+          "description": "The body of a function that rewrites the request (not a free feature). See hooks.md."
         }
       },
       "required": [
@@ -166,7 +166,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "PATCH",
-          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
         },
         "url": {
           "type": "string",
@@ -260,7 +260,7 @@
             "EXACT",
             "PARTIAL"
           ],
-          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (premium)."
+          "description": "ANY ignores the body, EXACT wants it equal (as JSON when both parse), PARTIAL wants it contained (not a free feature)."
         },
         "outgoingRequestPayload": {
           "type": "string",
@@ -291,11 +291,11 @@
         },
         "isLogpointEnabled": {
           "type": "boolean",
-          "description": "false mutes the console group tweak prints for each interception (premium)."
+          "description": "false mutes the console group tweak prints for each interception (not a free feature)."
         },
         "isEditBeforeSendEnabled": {
           "type": "boolean",
-          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (premium)."
+          "description": "true pauses each matching request in the page so the user edits it by hand, then continues (not a free feature)."
         },
         "editBeforeSendStage": {
           "type": "string",
@@ -309,12 +309,12 @@
         "responseHook": {
           "type": "string",
           "maxLength": 20000,
-          "description": "The body of a function that rewrites the response (premium). See hooks.md."
+          "description": "The body of a function that rewrites the response (not a free feature). See hooks.md."
         },
         "requestHook": {
           "type": "string",
           "maxLength": 20000,
-          "description": "The body of a function that rewrites the request (premium). See hooks.md."
+          "description": "The body of a function that rewrites the request (not a free feature). See hooks.md."
         }
       },
       "required": [
@@ -336,7 +336,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "MODIFY_HEADERS",
-          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
         },
         "url": {
           "type": "string",
@@ -481,7 +481,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "REDIRECT",
-          "description": "MOCK answers the request itself; PATCH (Modify, premium) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
         },
         "url": {
           "type": "string",

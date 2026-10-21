@@ -26,6 +26,9 @@ const TIME_SENSITIVE = new RegExp(`\\b(before|after) (${MONTHS}),? 20\\d\\d\\b`,
 // a Windows-style path to a file: reference\mock.md, .\scripts\x.mjs
 const BACKSLASH_PATH = /(?:^|[\s`'"(])((?:\.{1,2}\\|[\w.-]+\\)[\w.\\-]*\.(?:md|mjs|js|json|py|sh|txt))\b/
 const EXTERNAL_LINK = /^(?:[a-z][a-z0-9+.-]*:|#)/i
+// the skill knows free features and checks the rest, never a plan: tiers change in tweak, the
+// skill ships ahead of it. Code (`PREMIUM_REQUIRED`, a payload's "free") is not prose.
+const PLAN_NAME = /\b(premium|paid plans?|upgrade to|tweak (basic|max|pro))\b/i
 
 const lineOf = (text, index) => text.slice(0, index).split('\n').length
 
@@ -126,12 +129,22 @@ function checkReferencesLinked(dir, skillText, problem) {
     })
 }
 
+const planFix = 'name the feature, not a plan: free (SKILL.md, "Free features") or "check access"'
+
 function checkProse(file, text, problem) {
   const lines = text.split('\n')
   if (file !== 'SKILL.md' && lines.length > CONTENTS_OVER_LINES && !/^## Contents$/m.test(text)) {
     problem(file, 1, `${lines.length} lines and no "## Contents" section`, 'add a table of contents near the top')
   }
+  let fenced = false
   lines.forEach((line, index) => {
+    if (line.trimStart().startsWith('```')) {
+      fenced = !fenced
+    }
+    const plan = !fenced && line.replace(/`[^`]*`/g, '').match(PLAN_NAME)
+    if (plan) {
+      problem(file, index + 1, `names a plan: "${plan[0]}"`, planFix)
+    }
     const backslash = line.match(BACKSLASH_PATH)
     if (backslash) {
       problem(file, index + 1, `backslash path ${backslash[1]}`, 'use forward slashes: they work on every platform')
@@ -230,6 +243,22 @@ async function checkValidatorAgainstSchema(dir, problem) {
   })
 }
 
+/** The schema's descriptions are read like the references: no plan names there either. */
+function checkSchemaProse(dir, problem) {
+  const file = 'reference/rule.schema.json'
+  if (!existsSync(path.join(dir, file))) {
+    return
+  }
+  readFileSync(path.join(dir, file), 'utf8')
+    .split('\n')
+    .forEach((line, index) => {
+      const plan = /"description":/.test(line) && line.match(PLAN_NAME)
+      if (plan) {
+        problem(file, index + 1, `names a plan: "${plan[0]}"`, `${planFix}; the schema is generated in tweak (src/@schema)`)
+      }
+    })
+}
+
 /** Every problem with one skill directory, as { file, line, message, fix } (file relative to the repo). */
 export async function lintSkill(dir) {
   const problems = []
@@ -256,6 +285,7 @@ export async function lintSkill(dir) {
   })
   await checkExamples(dir, files, read, problem)
   await checkValidatorAgainstSchema(dir, problem)
+  checkSchemaProse(dir, problem)
   return problems
 }
 

@@ -71,12 +71,16 @@ create on this page says so in its notes. A reload forgets it, so sign in again 
 | `enabled: false` | Ask the user: tweak > **⋮ > Settings > Preferences > AI Agents**, switch on. No reload needed. Then stop and wait for them: no file, no JSON, no rule written another way              |
 | `enabled: true`  | Go on. Keep `running`, `capturing` and `features` for the steps below                                                                                                                          |
 
-`features.features` answers what the user's plan allows and what you can drive, one entry per
-feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `HOOKS`,
-`EDIT_BEFORE_SEND`, `COLLECTIONS`, ...). An entry with `available: false` is not possible for you: `reason: 'PLAN'` means the
-user's plan does not include it, `'NOT_IN_SDK'` means the user can do it in tweak but you cannot.
-Tell the user which, and offer what is possible instead. `features.redirectTargetTypes` lists
-the Catch types the plan allows.
+`features.features` answers what the user's tweak includes and what you can drive, one entry
+per feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `HOOKS`,
+`EDIT_BEFORE_SEND`, `PARTIAL_MATCHING`, `LOGPOINT`, ...). Read it before you build on anything
+outside the free features (SKILL.md, "Free features"). An entry with `available: false` is not
+possible for you: `reason: 'PLAN'` means the user's tweak does not include it, `'NOT_IN_SDK'`
+means the user can do it in tweak but you cannot. Tell the user which, and offer what is
+possible instead. A feature with no entry, or a build with no `features()`, is checked by
+pushing the rule: tweak refuses what it does not include (`PREMIUM_REQUIRED`, "Errors").
+`features.redirectTargetTypes` lists the Catch types tweak takes. Ignore any `premium` field:
+it says nothing about a given feature.
 
 ## 2. Find the request, through tweak
 
@@ -215,9 +219,9 @@ not show it to the user first, and do not ask permission to push what they alrea
 set its type. Here every field but `url` (and `redirectUrl` for a redirect, a header row for a
 header rule) has a default — a Modify rule's forward what the server sent — and
 `responsePayload`, `requestPayload` and `outgoingRequestPayload` may be plain objects. Keep
-the `created[].id`s: they are how you change the rules later. On a paid plan the rules land in
-a collection named **"AI Generated"** (`result.collection`); tell the user that is where they
-are.
+the `created[].id`s: they are how you change the rules later. When the answer has a
+`result.collection`, the rules landed in that collection (**"AI Generated"**); tell the user
+that is where they are.
 
 ## 5. Make it apply
 
@@ -253,7 +257,7 @@ the page shows the change. Tell the user what you created, by its label, and whe
 | `INVALID_RULE`          | The message names the rule and the field. Fix it, push again                              |
 | `UNSUPPORTED_FIELD`     | A field you set cannot be set by an agent: remove it, or tell the user to set it in tweak. A header that guards other sites (headers.md): do not retry, hand the rule over as JSON (SKILL.md, step 6) |
 | `NOT_DELETABLE`         | Not a rule an agent created: switch it off, or ask the user                               |
-| `PREMIUM_REQUIRED`      | Modify, a hook or `PARTIAL` on the free plan: offer the free way (see the message)        |
+| `PREMIUM_REQUIRED`      | A feature the user's tweak does not include: tell them, offer the free way (the message)  |
 | `UNSUPPORTED_RULE_TYPE` | An older build (step 0): hand that rule over as JSON (SKILL.md, step 6)                   |
 | `RULE_LIMIT_REACHED`    | Tell the user to delete rules in tweak or upgrade. Do not delete for them                 |
 | `RULE_NOT_FOUND`        | The id is wrong or the rule was deleted: `listRules()` gives the current ids              |
@@ -272,8 +276,8 @@ name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data
 | Method                                | Answers                                                                                  |
 | ------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `signIn(name)`                        | `{ ok, agent }` — synchronous                                                            |
-| `status()`                            | `{ enabled, running, capturing, premium?, ruleSlotsLeft? }`                              |
-| `features()`                          | `{ premium, features: { NAME: { available, reason?, message? } }, redirectTargetTypes }` |
+| `status()`                            | `{ enabled, running, capturing, ruleSlotsLeft? }`                                        |
+| `features()`                          | `{ features: { NAME: { available, reason?, message? } }, redirectTargetTypes }`          |
 | `isFeatureAvailable(name)`            | `{ feature, available, reason?, message? }`                                              |
 | `setRequestCapture(on)`               | `{ capturing }`                                                                          |
 | `searchRequests(query)`               | `{ capturing, total, requests }`; a form body comes as its fields                        |

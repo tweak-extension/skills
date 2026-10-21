@@ -2,7 +2,8 @@
 
 A Modify rule lets the request reach the server and changes only what the rule names, on the
 way out or on the way back. Everything else passes through as the page sent it and the
-server answered it. Premium; fetch and XHR only.
+server answered it. Not a free feature (check access: SKILL.md, "Free features"); fetch and
+XHR only.
 
 The type is `"interceptionPolicy": "PATCH"`. That is tweak's name for Modify and has nothing
 to do with the HTTP method: `method` still says which method the rule catches.
@@ -87,9 +88,9 @@ Every field shown is required by tweak's import page; JSON goes into `responsePa
 
 ## Limits
 
-- **Premium.** On the free plan offer a Mock instead: the captured real response with the
-  change written in ([mock.md](mock.md)). Imported from a file on the free plan, a Modify rule
-  becomes a Mock.
+- **Check access first.** When the user's tweak has no Modify, offer a Mock instead: the
+  captured real response with the change written in ([mock.md](mock.md)). Imported from a file
+  into a tweak without Modify, a Modify rule becomes a Mock.
 - fetch and XHR only. Images, scripts, stylesheets and page loads need a Redirect or a header
   rule.
 - The first enabled rule that catches a request answers it: a Mock on the same url wins over

@@ -74,6 +74,20 @@ describe('lint-skills', () => {
     assert.ok(found.some((entry) => entry.startsWith('orphan.md:122 time-sensitive phrasing "before March 2026"')))
   })
 
+  it('reports a plan named in prose or the schema, never in code', async () => {
+    const dir = brokenCopy({
+      'reference/mock.md': (text) =>
+        `${text}\nModify needs Tweak Max.\nOn \`PREMIUM_REQUIRED\`, offer the free way.\n\`\`\`js\nresponse.tier = 'premium'\n\`\`\`\n`,
+      'reference/rule.schema.json': (text) => text.replace('(Modify, not a free feature)', '(Modify, premium)'),
+    })
+    const found = await messages(dir)
+    const plans = found.filter((entry) => entry.includes('names a plan'))
+
+    assert.ok(plans.some((entry) => entry.startsWith('mock.md:') && entry.endsWith('"Tweak Max"')))
+    assert.ok(plans.some((entry) => entry.startsWith('rule.schema.json:') && entry.endsWith('"premium"')))
+    assert.equal(plans.length, 2, plans.join('\n'))
+  })
+
   it('reports an example rule the validator refuses, and a validator out of step with the schema', async () => {
     const dir = brokenCopy({
       'reference/mock.md': (text) => `${text}\n\`\`\`json\n{ "interceptionPolicy": "MOCK", "url": "/a" }\n\`\`\`\n`,

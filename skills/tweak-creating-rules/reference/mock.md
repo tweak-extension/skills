@@ -24,10 +24,10 @@ Many requests share one url — every GraphQL operation POSTs to `/graphql` — 
 cannot pick one out. `requestPayload` narrows the rule to requests whose body matches it, in one
 of two ways (`requestPayloadMatchPolicy`):
 
-| Policy            | Matches when the body                                                                              | Plan    |
-| ----------------- | -------------------------------------------------------------------------------------------------- | ------- |
-| `EXACT` (default) | equals `requestPayload` — compared as JSON when both parse, so spacing and key order do not matter | free    |
-| `PARTIAL`         | contains it: a substring, or for JSON, every field it names with the same value                    | premium |
+| Policy            | Matches when the body                                                                              | Free?        |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ------------ |
+| `EXACT` (default) | equals `requestPayload` — compared as JSON when both parse, so spacing and key order do not matter | yes          |
+| `PARTIAL`         | contains it: a substring, or for JSON, every field it names with the same value                    | check access |
 
 `PARTIAL` is the tool for GraphQL: `{"operationName":"getProduct","variables":{"productId":1}}`
 catches that one operation for that one product, whatever its query text. The tweak UI calls
@@ -35,8 +35,8 @@ the two **Equals** and **Contains**, the bar over the rule's Request payload tab
 (`ANY`, which ignores the body). Newer tweak versions store an empty payload as `ANY`; older
 ones refuse the value, so to match any body leave `requestPayload` empty and the policy out. Take the body
 from the captured request (`searchRequests`), never from the page's rendered text.
-`requestPayload` may be a plain object in the browser; in a file, a JSON string. On the free
-plan, only `EXACT` — or narrow by url. Never `PARTIAL` with `{}` or `[]`: an empty container is
+`requestPayload` may be a plain object in the browser; in a file, a JSON string. Without
+`PARTIAL` (check access first: SKILL.md, "Free features"), use `EXACT` — or narrow by url. Never `PARTIAL` with `{}` or `[]`: an empty container is
 contained in every JSON body, and tweak warns.
 
 **A form body** (`application/x-www-form-urlencoded`, a classic `<form>` post or
@@ -88,10 +88,10 @@ JSON into it.
 | `status`                    | 100-599                                                                                      |
 | `delay`                     | Milliseconds before answering. Use it for "slow network" asks                                |
 | `requestPayload`            | `""` matches any body. Set it to tell requests to one url apart: "Matching the request body" |
-| `requestPayloadMatchPolicy` | Optional. `EXACT` (default) or `PARTIAL` (premium). Leave it out with an empty payload       |
+| `requestPayloadMatchPolicy` | Optional. `EXACT` (default) or `PARTIAL` (check access). Leave it out with an empty payload  |
 | `requestHeaders`            | Optional. Only a Content-Type row: `application/x-www-form-urlencoded` makes it a form match |
-| `isLogpointEnabled`         | Optional. `false` mutes tweak's console log for this rule (premium); default `true`          |
-| `isEditBeforeSendEnabled`, `editBeforeSendStage` | Optional. Pause for the user to edit it by hand (premium): [edit-before-send.md](edit-before-send.md) |
+| `isLogpointEnabled`         | Optional. `false` mutes tweak's console log for this rule (check access); default `true`     |
+| `isEditBeforeSendEnabled`, `editBeforeSendStage` | Optional. Pause for the user to edit it by hand (check access): [edit-before-send.md](edit-before-send.md) |
 | `responseHeaders`           | Always a Content-Type row. `text/plain`, `text/html` or other types for non-JSON payloads    |
 
 ## Limits
@@ -102,10 +102,10 @@ JSON into it.
   auto-enabled site).
 - The first enabled rule that matches wins, so keep `url` specific when several rules exist.
 - A response computed by code (random values, fields derived from the request) is a hook:
-  [hooks.md](hooks.md). Hooks are premium; on the free plan write the values out in
+  [hooks.md](hooks.md). Hooks are not a free feature: without them, write the values out in
   `responsePayload`.
-- The server's real answer with one thing changed is a Modify rule (premium,
-  [modify.md](modify.md)). On the free plan, a Mock of the captured response with the change
+- The server's real answer with one thing changed is a Modify rule (check access,
+  [modify.md](modify.md)). Without Modify, a Mock of the captured response with the change
   written in is the way.
 - The breakpoint (pausing devtools on a match) and "Edit before send" are the user's to switch
   on in tweak: setting either is refused (`UNSUPPORTED_FIELD`). Tell the user where they are.
@@ -170,7 +170,7 @@ The body copies the api's real error shape; the frontend reads `error.message`.
 }
 ```
 
-### "Mock getProduct for product 1 in our GraphQL api" (premium)
+### "Mock getProduct for product 1 in our GraphQL api" (check access)
 
 Every operation POSTs to `/graphql`, so the body picks this one out, partially: the operation
 name and the variable, whatever the query text around them.
@@ -192,7 +192,7 @@ name and the variable, whatever the query text around them.
 }
 ```
 
-On the free plan, `EXACT` with the whole captured body, or the url when the page puts the
+Without `PARTIAL`, `EXACT` with the whole captured body, or the url when the page puts the
 operation there (`/graphql?op=getProduct`).
 
 ### "Return this CSV from /export"
