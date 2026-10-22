@@ -142,4 +142,5 @@ request away.
   when the user asks to keep the response as it is; say so. A header rule that needs a token
   (`Authorization`) takes the one the user gives you, never one read off the page or a file.
 - An answer with `warnings` is not done: each one names something tweak dropped or changed.
-- Rules outlive the conversation. Say how to undo one: switch it off or delete it in tweak.
+- Never delete a rule, not even one you created. Rules outlive the conversation: say how to
+  undo one (switch it off), and that deleting it is the user's to do, in tweak.

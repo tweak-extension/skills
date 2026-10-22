@@ -164,6 +164,10 @@ describe('fake tweak', () => {
     })
   })
 
+  it('has no way to delete a rule', () => {
+    assert.equal(fake().sdk.deleteRule, undefined)
+  })
+
   it('an API version 4 build has neither Modify nor header rules', async () => {
     const { sdk } = fake({ version: 4, unavailable: [] })
 

@@ -14,7 +14,7 @@ call resolves `{ ok: true, ... }` or `{ ok: false, error: { code, message } }`; 
 - 3. Check what tweak already has
 - 4. Push
 - 5. Make it apply
-- 6. Iterate, toggle, clean up
+- 6. Iterate and toggle
 - Errors
 - API reference
 
@@ -40,7 +40,7 @@ first, then call only what `methods` lists — for anything missing, the fallbac
 | `setRequestCapture` / `searchRequests`         | Read the requests off the page (step 2's fallback), and tell the user you cannot confirm tweak can mock them                                                               |
 | `setRunning`                                   | Ask the user to press **Run** in tweak                                                                                                                                     |
 | `searchRules`                                  | `listRules({ url })` with a fragment of the request url, then judge by the labels; ask the user when one looks like it does the job                                        |
-| `updateRule` / `deleteRule` / `setRuleEnabled` | **A rule you push is permanent for you.** Get every field right before the one push; if it comes back with `warnings` or wrong, tell the user exactly what to fix in tweak |
+| `updateRule` / `setRuleEnabled`                | **A rule you push is permanent for you.** Get every field right before the one push; if it comes back with `warnings` or wrong, tell the user exactly what to fix in tweak |
 | `version` below `6`                            | Edit before send is refused (`UNSUPPORTED_FIELD`): push the rule without it, and tell the user to switch it on in the rule's row ([edit-before-send.md](edit-before-send.md)). A form body comes as its raw string: decode it in your script (step 2) |
 
 Whenever `version` is below `5` or something is missing, your answer must tell the user once,
@@ -236,7 +236,7 @@ type, header rules and redirects included. If
 Requests already made are not replayed: reload, or repeat what makes the request, then check
 the page shows the change. Tell the user what you created, by its label, and where it is.
 
-## 6. Iterate, toggle, clean up
+## 6. Iterate and toggle
 
 - **Change a rule** you made — never create a second one for the same request:
   `updateRule(id, { status: 500 }, { agent: 'Claude' })`. Any field `createRules` takes; only
@@ -245,8 +245,8 @@ the page shows the change. Tell the user what you created, by its label, and whe
 - **The user's own rules**: `listRules({ url, label, type, enabled })` answers their ids, labels
   and urls — never their payloads.
 - **On or off**: `setRuleEnabled(id, false)`; tweak itself: `setRunning(false)`.
-- **Undo a mistake**: `deleteRule(id)` deletes a rule an agent created — never the user's own
-  (`NOT_DELETABLE`); switch those off instead, or ask the user.
+- **Undo a mistake**: switch the rule off. You never delete a rule, yours or the user's: tell
+  the user they can delete it in tweak.
 - **Capture**: if it was off before you started, switch it back off with
   `setRequestCapture(false)` once you are done.
 
@@ -256,7 +256,6 @@ the page shows the change. Tell the user what you created, by its label, and whe
 | ----------------------- | ----------------------------------------------------------------------------------------- |
 | `INVALID_RULE`          | The message names the rule and the field. Fix it, push again                              |
 | `UNSUPPORTED_FIELD`     | A field you set cannot be set by an agent: remove it, or tell the user to set it in tweak. A header that guards other sites (headers.md): do not retry, hand the rule over as JSON (SKILL.md, step 6) |
-| `NOT_DELETABLE`         | Not a rule an agent created: switch it off, or ask the user                               |
 | `PREMIUM_REQUIRED`      | A feature the user's tweak does not include: tell them, offer the free way (the message)  |
 | `UNSUPPORTED_RULE_TYPE` | An older build (step 0): hand that rule over as JSON (SKILL.md, step 6)                   |
 | `RULE_LIMIT_REACHED`    | Tell the user to delete rules in tweak or upgrade. Do not delete for them                 |
@@ -269,7 +268,7 @@ Relay `warnings` to the user: they name fields tweak dropped or cut.
 
 ## API reference
 
-API version `6` (`tweak.version`), top frame only; older builds lack some methods (step 0).
+API version `7` (`tweak.version`), top frame only; older builds lack some methods (step 0).
 `window.tweak` is missing when the page already owned that
 name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data.
 
@@ -290,7 +289,6 @@ name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data
 | `listRules(query)`                    | `{ rules: [{ id, type, url, label, enabled, collection? }] }`                            |
 | `searchRules(query)`                  | `{ total, rules }` — step 3; `{ requestUrl, method, text, type, enabled, limit }`        |
 | `setRuleEnabled(id, on)`              | `{ rule }`                                                                               |
-| `deleteRule(id)`                      | `{ deleted }` — agent-created rules only                                                 |
 | `setRunning(on)`                      | `{ running }`                                                                            |
 
 `createRules` also accepts an import file's `{ configurations: [...] }`. A field outside the

@@ -125,7 +125,7 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
     failNextCreate: scenario.failFirstCreate ?? null,
     nextId: 1,
   }
-  const version = scenario.version ?? 6
+  const version = scenario.version ?? 7
   const has = (name) => !state.unavailable.includes(name)
   // an older build answers features() without the entries it predates
   const listed = FEATURES.filter((name) => !(scenario.omitFeatures ?? []).includes(name))
@@ -401,17 +401,6 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       }
       rule.enabled = Boolean(on)
       return { ok: true, rule: summary(rule) }
-    },
-    deleteRule: async (id) => {
-      const rule = findRule(id)
-      if (!rule) {
-        return fail('RULE_NOT_FOUND', `no rule ${id}`)
-      }
-      if (!rule.agentCreated) {
-        return fail('NOT_DELETABLE', 'only rules an agent created can be deleted')
-      }
-      state.rules = state.rules.filter((entry) => entry !== rule)
-      return { ok: true, deleted: id }
     },
     setRunning: async (on) => {
       state.running = Boolean(on)
