@@ -14,7 +14,7 @@ call resolves `{ ok: true, ... }` or `{ ok: false, error: { code, message } }`; 
 - 3. Check what tweak already has
 - 4. Push
 - 5. Make it apply
-- 6. Iterate, toggle, clean up
+- 6. Iterate and toggle
 - Errors
 - API reference
 
@@ -40,7 +40,7 @@ first, then call only what `methods` lists — for anything missing, the fallbac
 | `setRequestCapture` / `searchRequests`         | Read the requests off the page (step 2's fallback), and tell the user you cannot confirm tweak can mock them                                                               |
 | `setRunning`                                   | Ask the user to press **Run** in tweak                                                                                                                                     |
 | `searchRules`                                  | `listRules({ url })` with a fragment of the request url, then judge by the labels; ask the user when one looks like it does the job                                        |
-| `updateRule` / `deleteRule` / `setRuleEnabled` | **A rule you push is permanent for you.** Get every field right before the one push; if it comes back with `warnings` or wrong, tell the user exactly what to fix in tweak |
+| `updateRule` / `setRuleEnabled`                | **A rule you push is permanent for you.** Get every field right before the one push; if it comes back with `warnings` or wrong, tell the user exactly what to fix in tweak |
 | `version` below `6`                            | Edit before send is refused (`UNSUPPORTED_FIELD`): push the rule without it, and tell the user to switch it on in the rule's row ([edit-before-send.md](edit-before-send.md)). A form body comes as its raw string: decode it in your script (step 2) |
 
 Whenever `version` is below `5` or something is missing, your answer must tell the user once,
@@ -71,12 +71,16 @@ create on this page says so in its notes. A reload forgets it, so sign in again 
 | `enabled: false` | Ask the user: tweak > **⋮ > Settings > Preferences > AI Agents**, switch on. No reload needed. Then stop and wait for them: no file, no JSON, no rule written another way              |
 | `enabled: true`  | Go on. Keep `running`, `capturing` and `features` for the steps below                                                                                                                          |
 
-`features.features` answers what the user's plan allows and what you can drive, one entry per
-feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `HOOKS`,
-`EDIT_BEFORE_SEND`, `COLLECTIONS`, ...). An entry with `available: false` is not possible for you: `reason: 'PLAN'` means the
-user's plan does not include it, `'NOT_IN_SDK'` means the user can do it in tweak but you cannot.
-Tell the user which, and offer what is possible instead. `features.redirectTargetTypes` lists
-the Catch types the plan allows.
+`features.features` answers what the user's tweak includes and what you can drive, one entry
+per feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `HOOKS`,
+`EDIT_BEFORE_SEND`, `PARTIAL_MATCHING`, `LOGPOINT`, ...). Read it before you build on anything
+outside the free features (SKILL.md, "Free features"). An entry with `available: false` is not
+possible for you: `reason: 'PLAN'` means the user's tweak does not include it, `'NOT_IN_SDK'`
+means the user can do it in tweak but you cannot. Tell the user which, and offer what is
+possible instead. A feature with no entry, or a build with no `features()`, is checked by
+pushing the rule: tweak refuses what it does not include (`PREMIUM_REQUIRED`, "Errors").
+`features.redirectTargetTypes` lists the Catch types tweak takes. Ignore any `premium` field:
+it says nothing about a given feature.
 
 ## 2. Find the request, through tweak
 
@@ -215,9 +219,9 @@ not show it to the user first, and do not ask permission to push what they alrea
 set its type. Here every field but `url` (and `redirectUrl` for a redirect, a header row for a
 header rule) has a default — a Modify rule's forward what the server sent — and
 `responsePayload`, `requestPayload` and `outgoingRequestPayload` may be plain objects. Keep
-the `created[].id`s: they are how you change the rules later. On a paid plan the rules land in
-a collection named **"AI Generated"** (`result.collection`); tell the user that is where they
-are.
+the `created[].id`s: they are how you change the rules later. When the answer has a
+`result.collection`, the rules landed in that collection (**"AI Generated"**); tell the user
+that is where they are.
 
 ## 5. Make it apply
 
@@ -232,7 +236,7 @@ type, header rules and redirects included. If
 Requests already made are not replayed: reload, or repeat what makes the request, then check
 the page shows the change. Tell the user what you created, by its label, and where it is.
 
-## 6. Iterate, toggle, clean up
+## 6. Iterate and toggle
 
 - **Change a rule** you made — never create a second one for the same request:
   `updateRule(id, { status: 500 }, { agent: 'Claude' })`. Any field `createRules` takes; only
@@ -241,8 +245,8 @@ the page shows the change. Tell the user what you created, by its label, and whe
 - **The user's own rules**: `listRules({ url, label, type, enabled })` answers their ids, labels
   and urls — never their payloads.
 - **On or off**: `setRuleEnabled(id, false)`; tweak itself: `setRunning(false)`.
-- **Undo a mistake**: `deleteRule(id)` deletes a rule an agent created — never the user's own
-  (`NOT_DELETABLE`); switch those off instead, or ask the user.
+- **Undo a mistake**: switch the rule off. You never delete a rule, yours or the user's: tell
+  the user they can delete it in tweak.
 - **Capture**: if it was off before you started, switch it back off with
   `setRequestCapture(false)` once you are done.
 
@@ -252,8 +256,7 @@ the page shows the change. Tell the user what you created, by its label, and whe
 | ----------------------- | ----------------------------------------------------------------------------------------- |
 | `INVALID_RULE`          | The message names the rule and the field. Fix it, push again                              |
 | `UNSUPPORTED_FIELD`     | A field you set cannot be set by an agent: remove it, or tell the user to set it in tweak. A header that guards other sites (headers.md): do not retry, hand the rule over as JSON (SKILL.md, step 6) |
-| `NOT_DELETABLE`         | Not a rule an agent created: switch it off, or ask the user                               |
-| `PREMIUM_REQUIRED`      | Modify, a hook or `PARTIAL` on the free plan: offer the free way (see the message)        |
+| `PREMIUM_REQUIRED`      | A feature the user's tweak does not include: tell them, offer the free way (the message)  |
 | `UNSUPPORTED_RULE_TYPE` | An older build (step 0): hand that rule over as JSON (SKILL.md, step 6)                   |
 | `RULE_LIMIT_REACHED`    | Tell the user to delete rules in tweak or upgrade. Do not delete for them                 |
 | `RULE_NOT_FOUND`        | The id is wrong or the rule was deleted: `listRules()` gives the current ids              |
@@ -265,15 +268,15 @@ Relay `warnings` to the user: they name fields tweak dropped or cut.
 
 ## API reference
 
-API version `6` (`tweak.version`), top frame only; older builds lack some methods (step 0).
+API version `7` (`tweak.version`), top frame only; older builds lack some methods (step 0).
 `window.tweak` is missing when the page already owned that
 name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data.
 
 | Method                                | Answers                                                                                  |
 | ------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `signIn(name)`                        | `{ ok, agent }` — synchronous                                                            |
-| `status()`                            | `{ enabled, running, capturing, premium?, ruleSlotsLeft? }`                              |
-| `features()`                          | `{ premium, features: { NAME: { available, reason?, message? } }, redirectTargetTypes }` |
+| `status()`                            | `{ enabled, running, capturing, ruleSlotsLeft? }`                                        |
+| `features()`                          | `{ features: { NAME: { available, reason?, message? } }, redirectTargetTypes }`          |
 | `isFeatureAvailable(name)`            | `{ feature, available, reason?, message? }`                                              |
 | `setRequestCapture(on)`               | `{ capturing }`                                                                          |
 | `searchRequests(query)`               | `{ capturing, total, requests }`; a form body comes as its fields                        |
@@ -286,7 +289,6 @@ name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data
 | `listRules(query)`                    | `{ rules: [{ id, type, url, label, enabled, collection? }] }`                            |
 | `searchRules(query)`                  | `{ total, rules }` — step 3; `{ requestUrl, method, text, type, enabled, limit }`        |
 | `setRuleEnabled(id, on)`              | `{ rule }`                                                                               |
-| `deleteRule(id)`                      | `{ deleted }` — agent-created rules only                                                 |
 | `setRunning(on)`                      | `{ running }`                                                                            |
 
 `createRules` also accepts an import file's `{ configurations: [...] }`. A field outside the

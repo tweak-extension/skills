@@ -15,6 +15,9 @@ import {
 } from '../lib/grade.mjs'
 import { createFakeTweak } from '../lib/fake-tweak.mjs'
 
+// what a scenario's tweak says when it lacks a feature, in the agent's words: loose on purpose
+const NOT_INCLUDED = ['not included', 'not available', "doesn't include", 'does not include', 'access', 'plan']
+
 const SHOP = 'https://shop.test/products'
 const PRODUCTS_URL = 'https://shop.test/api/products?page=1'
 const PRODUCTS = {
@@ -40,7 +43,7 @@ const shop = (overrides = {}) => ({
   enabled: true,
   running: false,
   capturing: false,
-  premium: false,
+  // the fake's default: only the free features
   requests: [productsRequest()],
   resources: [
     { name: PRODUCTS_URL, initiatorType: 'fetch' },
@@ -82,13 +85,30 @@ const mascara = (overrides = {}) =>
     url: 'https://beauty.test/products/1',
     title: 'Essence Mascara Lash Princess',
     version: 6,
-    premium: true,
+    unavailable: [],
     requests: [
       { url: MASCARA_URL, method: 'GET', contentType: 'application/json', requestPayload: '', responsePayload: MASCARA },
     ],
     resources: [{ name: MASCARA_URL, initiatorType: 'fetch' }],
     ...overrides,
   })
+// every operation POSTs to one url: only the body tells them apart
+const GRAPHQL_URL = 'https://shop.test/graphql'
+const GET_PRODUCT = {
+  body: { operationName: 'getProduct', variables: { productId: 1 }, query: 'query getProduct($productId: ID!) { product(id: $productId) { id stock } }' },
+  response: { data: { product: { id: 1, stock: 12 } } },
+}
+const GET_CART = {
+  body: { operationName: 'getCart', variables: {}, query: 'query getCart { cart { items { id } } }' },
+  response: { data: { cart: { items: [] } } },
+}
+const graphqlRequest = ({ body, response }) => ({
+  url: GRAPHQL_URL,
+  method: 'POST',
+  contentType: 'application/json',
+  requestPayload: JSON.stringify(body),
+  responsePayload: response,
+})
 // an answer that says the pause cannot be done: what the session that became these cases said
 const deniesEditBeforeSend = (text) =>
   mentions(text, 'not as a built-in', 'not possible', 'no breakpoint', 'not something tweak', "can't see or set")
@@ -101,7 +121,7 @@ const newsletter = (overrides = {}) =>
     url: 'https://beauty.test/',
     title: 'Beauty: home',
     version: 6,
-    premium: true,
+    unavailable: [],
     // Claude in Chrome refuses to print `a=1&b=2`, which is how the session went blind
     blocksQueryStrings: true,
     requests: [
@@ -318,7 +338,7 @@ export default [
         'never pushed a hook on free',
         !createCalls(run).some((call) => JSON.stringify(call.args).includes('Hook"')),
       )
-      check('tells the user hooks are premium', mentions(run.finalText, 'premium', 'paid plan', 'plan'))
+      check('tells the user their tweak has no hooks', mentions(run.finalText, ...NOT_INCLUDED))
       const [rule] = createdRules(run)
       if (rule) {
         check(
@@ -384,7 +404,7 @@ export default [
     mode: 'browser',
     tags: ['modify', 'hooks'],
     prompt: 'Use tweak to show my account on this page as on the free plan. Keep everything else real.',
-    scenario: shop({ premium: true, url: 'https://shop.test/account', requests: [accountRequest()] }),
+    scenario: shop({ unavailable: [], url: 'https://shop.test/account', requests: [accountRequest()] }),
     grade: (run, { check }) => {
       const created = pushed(run, check)
       const [rule] = created
@@ -406,7 +426,7 @@ export default [
     mode: 'browser',
     tags: ['modify', 'plan'],
     prompt: 'Use tweak to show my account on this page as on the free plan. Keep everything else as the server sends it.',
-    scenario: shop({ premium: false, url: 'https://shop.test/account', requests: [accountRequest()] }),
+    scenario: shop({ url: 'https://shop.test/account', requests: [accountRequest()] }),
     grade: (run, { check }) => {
       check(
         'asked tweak what the plan allows, or heard it from tweak',
@@ -417,7 +437,7 @@ export default [
         'no Modify rule on free',
         !createdRules(run).some((rule) => rule.interceptionPolicy === 'PATCH'),
       )
-      check('tells the user Modify is premium', mentions(run.finalText, 'premium', 'paid', 'your plan', 'free plan'))
+      check('tells the user their tweak has no Modify', mentions(run.finalText, ...NOT_INCLUDED))
       const [mock] = createdRules(run)
       if (mock) {
         const body = payload(mock)
@@ -574,14 +594,14 @@ export default [
     prompt:
       'Use tweak so that when the Essence Mascara product request fires, the browser pauses and lets me edit ' +
       'its reviews by hand before the app gets them.',
-    scenario: mascara({ premium: false }),
+    scenario: mascara({ unavailable: undefined }),
     grade: (run, { check }) => {
       check(
         'no Edit before send rule on free',
         !createdRules(run).some((rule) => rule.isEditBeforeSendEnabled === true),
       )
       check('names Edit before send', mentions(run.finalText, 'Edit before send'))
-      check('tells the user it is premium', mentions(run.finalText, 'premium', 'paid'))
+      check('tells the user their tweak does not include it', mentions(run.finalText, ...NOT_INCLUDED))
       check('never says it cannot be done', !deniesEditBeforeSend(run.finalText))
     },
   },
@@ -623,6 +643,43 @@ export default [
       check('catches the subscribe request', rule && catchesUrl(rule, NEWSLETTER_URL), rule?.url)
       check('the subscribe call answers 200', fixesSubscribe(rule), rule)
       check('never says it cannot read the body', !mentions(run.finalText, "can't read", 'cannot read', 'blocks every'))
+    },
+  },
+  {
+    // a build whose features() has no PARTIAL_MATCHING entry: the push is the check
+    id: 'browser-partial-no-entry',
+    mode: 'browser',
+    tags: ['mock', 'graphql', 'plan'],
+    prompt:
+      'Use tweak to make the getProduct GraphQL query on this page answer with product 1 out of stock. ' +
+      'Leave every other GraphQL operation alone.',
+    scenario: shop({
+      version: 6,
+      url: 'https://shop.test/products/1',
+      unavailable: ['PARTIAL_MATCHING'],
+      omitFeatures: ['PARTIAL_MATCHING', 'LOGPOINT'],
+      requests: [graphqlRequest(GET_PRODUCT), graphqlRequest(GET_CART)],
+    }),
+    grade: (run, { check }) => {
+      const created = createdRules(run)
+      const [rule] = created
+      const refused = createCalls(run).some((call) => call.result?.error?.code === 'PREMIUM_REQUIRED')
+      check('exactly one rule', created.length === 1, created.length)
+      check('catches /graphql', rule && catchesUrl(rule, GRAPHQL_URL), rule?.url)
+      check('no PARTIAL rule accepted', rule?.requestPayloadMatchPolicy !== 'PARTIAL', rule?.requestPayloadMatchPolicy)
+      check(
+        'narrowed to getProduct',
+        JSON.stringify(rule?.requestPayload ?? '').includes('getProduct') || /getProduct/.test(String(rule?.url)),
+        rule?.requestPayload,
+      )
+      check(
+        'the product answers out of stock',
+        payload(rule)?.data?.product?.stock === 0 || /stock\W*=\W*0\b/.test(String(rule?.responseHook)),
+        payload(rule) ?? rule?.responseHook,
+      )
+      if (refused) {
+        check('tells the user their tweak has no PARTIAL', mentions(run.finalText, ...NOT_INCLUDED, 'PARTIAL', 'Contains'))
+      }
     },
   },
 ]

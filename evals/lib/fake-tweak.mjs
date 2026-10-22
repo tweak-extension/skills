@@ -3,7 +3,7 @@
  * eval case scripts through a scenario and that records every call for the graders.
  *
  * It is NOT the extension's builder: it refuses what the skill's own contract says tweak refuses
- * (url, redirect target, plan gates, GLOBAL from a page, a field outside the type's vocabulary,
+ * (url, redirect target, a feature the scenario's tweak does not include, GLOBAL from a page, a field outside the type's vocabulary,
  * a Modify rule that changes nothing, a header row the browser or the page API would refuse)
  * and nothing more. Whether tweak accepts the skill's examples is
  * the contract tests' job (src/__tests__/agent-skills.test.js in tweak-extension/tweak).
@@ -27,8 +27,12 @@ const FEATURES = [
   'EDIT_BEFORE_SEND',
   'COLLECTIONS',
   'VARIABLES',
+  'PARTIAL_MATCHING',
+  'LOGPOINT',
 ]
-const PREMIUM_FEATURES = ['HOOKS', 'EDIT_BEFORE_SEND', 'COLLECTIONS', 'MODIFY_RULES', 'VARIABLES']
+// every feature outside the skill's free list (SKILL.md, "Free features"): a scenario's tweak
+// includes all of them (`unavailable: []`), none (the default), or any mix
+export const NOT_FREE = ['MODIFY_RULES', 'HOOKS', 'EDIT_BEFORE_SEND', 'COLLECTIONS', 'VARIABLES', 'PARTIAL_MATCHING', 'LOGPOINT']
 // what version 6 added: Edit before send, and a form body handed out as its fields
 const V6_FIELDS = ['isEditBeforeSendEnabled', 'editBeforeSendStage']
 const FORM_URLENCODED = /application\/x-www-form-urlencoded/i
@@ -116,19 +120,27 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
     capturing: scenario.capturing ?? false,
     // requests made before capture was switched on were never captured: a reload is what fills it
     captured: scenario.capturing ?? false,
-    premium: scenario.premium ?? false,
+    unavailable: scenario.unavailable ?? NOT_FREE,
     rules: clone(scenario.rules ?? []).map((rule) => ({ enabled: true, ...rule })),
     failNextCreate: scenario.failFirstCreate ?? null,
     nextId: 1,
   }
-  const version = scenario.version ?? 6
+  const version = scenario.version ?? 7
+  const has = (name) => !state.unavailable.includes(name)
+  // an older build answers features() without the entries it predates
+  const listed = FEATURES.filter((name) => !(scenario.omitFeatures ?? []).includes(name))
+  const notIncluded = (where, what, instead) =>
+    fail('PREMIUM_REQUIRED', `${where}: ${what} is not included in the user's tweak; ${instead}`)
 
   const featureEntry = (name) => {
+    if (!listed.includes(name)) {
+      return null
+    }
+    if (!has(name)) {
+      return { feature: name, available: false, reason: 'PLAN', message: `${name} is not included in the user's tweak` }
+    }
     if (NOT_IN_SDK.includes(name)) {
       return { feature: name, available: false, reason: 'NOT_IN_SDK', message: `${name} cannot be created by an agent` }
-    }
-    if (PREMIUM_FEATURES.includes(name) && !state.premium) {
-      return { feature: name, available: false, reason: 'PLAN', message: `${name} needs tweak premium` }
     }
     return { feature: name, available: true }
   }
@@ -155,10 +167,8 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       return { error: fail('INVALID_RULE', `${where}: "status" must be an integer from 100 to 599`) }
     }
     if (type === 'PATCH') {
-      if (!state.premium) {
-        return {
-          error: fail('PREMIUM_REQUIRED', `${where}: Modify rules need tweak premium; a MOCK rule is the free way`),
-        }
+      if (!has('MODIFY_RULES')) {
+        return { error: notIncluded(where, 'Modify', 'a MOCK rule is the free way') }
       }
       if (!modifyChangesSomething(rule)) {
         return { error: fail('INVALID_RULE', `${where}: a Modify rule must change something`) }
@@ -184,10 +194,8 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
         return { error: fail('INVALID_RULE', `${where}: "headerRuleScope" GLOBAL cannot be set from a page`) }
       }
     }
-    if ((rule.responseHook || rule.requestHook) && !state.premium) {
-      return {
-        error: fail('PREMIUM_REQUIRED', `${where}: hooks need tweak premium; write the values into responsePayload`),
-      }
+    if ((rule.responseHook || rule.requestHook) && !has('HOOKS')) {
+      return { error: notIncluded(where, 'a hook', 'write the values into responsePayload') }
     }
     if (version < 6 && V6_FIELDS.some((key) => !isInert(rule[key]))) {
       return {
@@ -199,11 +207,14 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
         error: fail('INVALID_RULE', `${where}: "editBeforeSendStage" must be ${EDIT_BEFORE_SEND_STAGES.join(', ')}`),
       }
     }
-    if (rule.isEditBeforeSendEnabled === true && !state.premium) {
-      return { error: fail('PREMIUM_REQUIRED', `${where}: Edit before send needs tweak premium`) }
+    if (rule.isEditBeforeSendEnabled === true && !has('EDIT_BEFORE_SEND')) {
+      return { error: notIncluded(where, 'Edit before send', 'make the change in the rule instead') }
     }
-    if (rule.requestPayloadMatchPolicy === 'PARTIAL' && !state.premium) {
-      return { error: fail('PREMIUM_REQUIRED', `${where}: PARTIAL body matching needs tweak premium`) }
+    if (rule.requestPayloadMatchPolicy === 'PARTIAL' && !has('PARTIAL_MATCHING')) {
+      return { error: notIncluded(where, 'PARTIAL body matching', 'match the body EXACT, or narrow by url') }
+    }
+    if (rule.isLogpointEnabled === false && !has('LOGPOINT')) {
+      return { error: notIncluded(where, 'muting the logpoint', 'every interception is logged') }
     }
     // the vocabulary is validate-rules.mjs's, which tweak's tests hold to src/@schema
     const unsupported = Object.keys(rule).filter(
@@ -234,7 +245,7 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
     if (refused) {
       return refused.error
     }
-    const collection = state.premium ? 'AI Generated' : undefined
+    const collection = has('COLLECTIONS') ? 'AI Generated' : undefined
     const created = rules.map((rule, index) => {
       const stored = {
         ...clone(rule),
@@ -274,16 +285,20 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       enabled: state.enabled,
       running: state.running,
       capturing: state.capturing,
-      premium: state.premium,
-      ruleSlotsLeft: (state.premium ? 200 : 12) - state.rules.length,
+      // on the wire as in tweak, but the skill never reads it
+      premium: has('MODIFY_RULES'),
+      ruleSlotsLeft: (has('MODIFY_RULES') ? 200 : 12) - state.rules.length,
     }),
     features: async () => ({
       ok: true,
-      premium: state.premium,
-      features: Object.fromEntries(FEATURES.map((name) => [name, featureEntry(name)])),
+      premium: has('MODIFY_RULES'),
+      features: Object.fromEntries(listed.map((name) => [name, featureEntry(name)])),
       redirectTargetTypes: ['ALL', 'XHR', 'DOCUMENT', 'IFRAME', 'SCRIPT', 'STYLESHEET', 'IMAGE', 'MEDIA', 'FONT'],
     }),
-    isFeatureAvailable: async (name) => ({ ok: true, ...featureEntry(name) }),
+    isFeatureAvailable: async (name) =>
+      featureEntry(name)
+        ? { ok: true, ...featureEntry(name) }
+        : fail('INVALID_ARGUMENT', `Unknown feature. One of ${listed.join(', ')}.`),
     setRequestCapture: async (on) => {
       state.capturing = Boolean(on)
       return { ok: true, capturing: state.capturing }
@@ -386,17 +401,6 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       }
       rule.enabled = Boolean(on)
       return { ok: true, rule: summary(rule) }
-    },
-    deleteRule: async (id) => {
-      const rule = findRule(id)
-      if (!rule) {
-        return fail('RULE_NOT_FOUND', `no rule ${id}`)
-      }
-      if (!rule.agentCreated) {
-        return fail('NOT_DELETABLE', 'only rules an agent created can be deleted')
-      }
-      state.rules = state.rules.filter((entry) => entry !== rule)
-      return { ok: true, deleted: id }
     },
     setRunning: async (on) => {
       state.running = Boolean(on)

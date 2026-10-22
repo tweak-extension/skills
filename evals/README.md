@@ -20,13 +20,12 @@ harness itself is unit tested without a model (`test/evals.test.mjs`, in `npm te
 
 ## Running
 
-Needs the `claude` CLI on the PATH, signed in or with `ANTHROPIC_API_KEY` set. A full run (159 runs) costs about $11 on
-Sonnet ($0.60 on Haiku, $18 on Opus) and takes about 15 minutes at `--concurrency 4`. Keep it
-at 4 or below: around 12 concurrent agents the fake tab's MCP connection starts dropping
-(`CONNECTION_CLOSED` in the transcript), and those runs read as behaviour failures.
+Needs the `claude` CLI on the PATH, signed in or with `ANTHROPIC_API_KEY` set. Keep
+`--concurrency` at 4 or below: around 12 concurrent agents the fake tab's MCP connection starts
+dropping (`CONNECTION_CLOSED` in the transcript), and those runs read as behaviour failures.
 
 ```bash
-npm run eval                                            # all 53 cases, 3 trials each
+npm run eval                                            # every case, 3 trials each
 npm run eval -- --filter browser                        # ids or tags containing "browser"
 npm run eval -- --filter trigger --trials 5
 npm run eval -- --mode file --model claude-opus-5-5     # default model is claude-sonnet-5-5

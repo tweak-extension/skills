@@ -1,6 +1,6 @@
 {
   "name": "tweak",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Agent Skills for tweak, the browser extension that mocks, modifies, redirects and sets headers on a page's requests, from plain English.",
   "author": {
     "name": "tweak-extension",

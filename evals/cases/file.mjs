@@ -6,6 +6,8 @@ import { DEVTOOLS_TOOL_PREFIX } from '../lib/agent.mjs'
 import { deliveredRules, mentions, payload, validateDelivered } from '../lib/grade.mjs'
 
 const IMPORT_LINK = 'import.html?mode=JSON'
+// how the agent asks whether the user's tweak has a feature outside the free list
+const ACCESS_QUESTION = ['does your tweak have', 'does your tweak include', 'do you have access', 'have access to']
 
 /** The checks every file-mode delivery passes, whatever it was asked for. */
 function delivery(run, check, count) {
@@ -86,6 +88,7 @@ export default [
       )
       check('method GET', rule?.method === 'GET', rule?.method)
       check('saved as tweak-rules.json', 'tweak-rules.json' in run.files, Object.keys(run.files))
+      check('asks nothing about a free feature', !mentions(run.finalText, ...ACCESS_QUESTION))
     },
   },
   {
@@ -172,7 +175,7 @@ export default [
     tags: ['modify', 'hooks'],
     prompt:
       'With tweak, keep the real response of GET /api/account but make its "plan" field say "free". ' +
-      'Everything else must stay live.',
+      'Everything else must stay live. My tweak has Modify rules and hooks.',
     grade: (run, { check }) => {
       const [rule] = delivery(run, check, 1)
       const hook = String(rule?.responseHook ?? '')
@@ -181,7 +184,20 @@ export default [
       check('keeps the server status', rule?.status === 0, rule?.status)
       check('keeps the server body (no responsePayload)', !rule?.responsePayload, rule?.responsePayload)
       check('a response hook sets plan to free', /plan/.test(hook) && /free/.test(hook) && /return/.test(hook), hook)
-      check('says Modify needs premium', mentions(run.finalText, 'premium', 'paid plan'))
+    },
+  },
+  {
+    // Modify is outside the free list and there is no tweak to ask: the user is asked, and nothing is written yet
+    id: 'file-modify-asks-access',
+    mode: 'file',
+    tags: ['modify', 'plan'],
+    prompt:
+      'With tweak, keep the real response of GET /api/account but make its "plan" field say "free". ' +
+      'Everything else must stay live.',
+    grade: (run, { check }) => {
+      const rules = deliveredRules(run) ?? []
+      check('no Modify rule written before the answer', !rules.some((rule) => rule.interceptionPolicy === 'PATCH'))
+      check('asks whether their tweak has Modify', mentions(run.finalText, 'Modify') && run.finalText.includes('?'))
     },
   },
   {
@@ -190,7 +206,7 @@ export default [
     tags: ['edit-before-send'],
     prompt:
       'With tweak, when GET /api/orders comes back I want the browser to pause so I can edit the response by ' +
-      'hand before the page gets it.',
+      'hand before the page gets it. My tweak has Edit before send.',
     grade: (run, { check }) => {
       const [rule] = delivery(run, check, 1)
       check('switches Edit before send on', rule?.isEditBeforeSendEnabled === true, rule?.isEditBeforeSendEnabled)
@@ -201,7 +217,6 @@ export default [
       )
       check('a Mock or Modify rule', ['MOCK', 'PATCH'].includes(rule?.interceptionPolicy), rule?.interceptionPolicy)
       check('catches /api/orders', String(rule?.url).includes('/api/orders'), rule?.url)
-      check('says it needs premium', mentions(run.finalText, 'premium', 'paid plan'))
     },
   },
   {

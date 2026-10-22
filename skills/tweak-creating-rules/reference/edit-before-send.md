@@ -2,8 +2,8 @@
 
 Edit before send pauses a request in the user's tab and opens tweak's editor over the page, so
 **the user** changes the request or the response by hand, then presses **Continue** (or
-**Cancel request**). It is tweak's breakpoint for data. Premium, and a switch on a Mock or
-Modify rule, not a rule type of its own.
+**Cancel request**). It is tweak's breakpoint for data. Not a free feature, and a switch on a
+Mock or Modify rule, not a rule type of its own.
 
 Reach for it whenever the user wants to do the editing themselves, live: "pause when the
 request fires", "let me edit the response before the app gets it", "stop and let me change the
@@ -53,9 +53,9 @@ that one request and are never saved into the rule.
 
 ## Limits
 
-- **Premium.** `features().features.EDIT_BEFORE_SEND` says whether the plan has it. On the free
-  plan tell the user it needs premium; offer a Mock or Modify rule that makes the change for
-  them instead.
+- **Check access first.** `features().features.EDIT_BEFORE_SEND` says whether the user's tweak
+  has it; without the browser, ask them. Without it, tell the user their tweak does not include
+  it; offer a Mock or Modify rule that makes the change for them instead.
 - Needs tweak API version `6`. On an older build create the rule without the switch, then tell
   the user to turn on **Edit before send** on the rule's row in tweak (the pencil next to the
   breakpoint) and pick the stage.

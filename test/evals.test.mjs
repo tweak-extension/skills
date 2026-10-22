@@ -123,12 +123,29 @@ describe('fake tweak', () => {
     assertMatches(await sdk.createRedirectRule({ url: 'a', redirectUrl: '/b', responsePayload: '{}' }), { ok: true })
   })
 
-  it('takes Modify rules on premium only, and only when they change something', async () => {
+  it('takes Modify rules only when the scenario includes them, and only when they change something', async () => {
     const modify = { url: '/api/account', responseHook: 'response.plan = "free"; return response;' }
 
     assert.equal((await fake().sdk.createModifyRule(modify)).error.code, 'PREMIUM_REQUIRED')
-    assertMatches(await fake({ premium: true }).sdk.createModifyRule(modify), { ok: true })
-    assert.equal((await fake({ premium: true }).sdk.createModifyRule({ url: '/a', status: 0 })).error.code, 'INVALID_RULE')
+    assertMatches(await fake({ unavailable: [] }).sdk.createModifyRule(modify), { ok: true })
+    assert.equal((await fake({ unavailable: [] }).sdk.createModifyRule({ url: '/a', status: 0 })).error.code, 'INVALID_RULE')
+  })
+
+  it('refuses each feature outside the free list on its own, and lists only the entries a build has', async () => {
+    const { sdk } = fake({ unavailable: ['PARTIAL_MATCHING'], omitFeatures: ['PARTIAL_MATCHING', 'LOGPOINT'] })
+    const graphql = { url: '/graphql', method: 'POST', requestPayload: '{"operationName":"getProduct"}' }
+
+    assertMatches(await sdk.createModifyRule({ url: '/a', status: 500 }), { ok: true })
+    assertMatches(await sdk.createMockRule({ ...graphql, requestPayloadMatchPolicy: 'PARTIAL' }), {
+      error: { code: 'PREMIUM_REQUIRED' },
+    })
+    assertMatches(await sdk.createMockRule({ url: '/b', isLogpointEnabled: false }), { ok: true })
+    const { features } = await sdk.features()
+    assert.equal(features.PARTIAL_MATCHING, undefined)
+    assert.equal(features.LOGPOINT, undefined)
+    assertMatches(features.MODIFY_RULES, { available: true })
+    assert.equal((await sdk.isFeatureAvailable('LOGPOINT')).error.code, 'INVALID_ARGUMENT')
+    assertMatches((await fake().sdk.features()).features.LOGPOINT, { available: false, reason: 'PLAN' })
   })
 
   it('takes header rules, refusing what the browser or the page API would', async () => {
@@ -147,8 +164,12 @@ describe('fake tweak', () => {
     })
   })
 
+  it('has no way to delete a rule', () => {
+    assert.equal(fake().sdk.deleteRule, undefined)
+  })
+
   it('an API version 4 build has neither Modify nor header rules', async () => {
-    const { sdk } = fake({ version: 4, premium: true })
+    const { sdk } = fake({ version: 4, unavailable: [] })
 
     assert.equal(sdk.createHeaderRule, undefined)
     assert.equal(sdk.createModifyRule, undefined)
@@ -246,14 +267,14 @@ describe('fake tab', () => {
     assertMatches(request.fields, { email: 'a@b.test', consent: '' })
   })
 
-  it('takes Edit before send from version 6, on premium only', async () => {
+  it('takes Edit before send from version 6, only when the scenario includes it', async () => {
     const rule = { url: '/products/1', isEditBeforeSendEnabled: true, editBeforeSendStage: 'RESPONSE' }
 
-    assertMatches(await createFakeTweak({ premium: true }).sdk.createModifyRule(rule), { ok: true })
-    assertMatches(await createFakeTweak({ premium: false }).sdk.createMockRule(rule), {
+    assertMatches(await createFakeTweak({ unavailable: [] }).sdk.createModifyRule(rule), { ok: true })
+    assertMatches(await createFakeTweak({}).sdk.createMockRule(rule), {
       error: { code: 'PREMIUM_REQUIRED' },
     })
-    assertMatches(await createFakeTweak({ premium: true, version: 5 }).sdk.createModifyRule(rule), {
+    assertMatches(await createFakeTweak({ unavailable: [], version: 5 }).sdk.createModifyRule(rule), {
       error: { code: 'UNSUPPORTED_FIELD' },
     })
   })
