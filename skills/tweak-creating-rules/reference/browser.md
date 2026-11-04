@@ -41,12 +41,13 @@ first, then call only what `methods` lists — for anything missing, the fallbac
 | `setRunning`                                   | Ask the user to press **Run** in tweak                                                                                                                                     |
 | `searchRules`                                  | `listRules({ url })` with a fragment of the request url, then judge by the labels; ask the user when one looks like it does the job                                        |
 | `updateRule` / `setRuleEnabled`                | **A rule you push is permanent for you.** Get every field right before the one push; if it comes back with `warnings` or wrong, tell the user exactly what to fix in tweak |
+| `createBlockRule` (`version` below `8`)        | Block rules are refused (`UNSUPPORTED_RULE_TYPE`): hand them over as JSON with the import link (SKILL.md, step 6). They import into tweak 10.4 and later |
 | `version` below `6`                            | Edit before send is refused (`UNSUPPORTED_FIELD`): push the rule without it, and tell the user to switch it on in the rule's row ([edit-before-send.md](edit-before-send.md)). A form body comes as its raw string: decode it in your script (step 2) |
 
 Whenever `version` is below `5` or something is missing, your answer must tell the user once,
 with the steps:
 their tweak build is older than this skill, so you cannot do everything it describes (name
-what is missing: Modify or header rules, checking their existing rules, writing hooks, running
+what is missing: Modify, header or Block rules, checking their existing rules, writing hooks, running
 tweak, capturing requests, fixing your own rules). To update: install the latest tweak build (or rebuild it), then
 **Reload** it on the browser's extensions page, then reload this tab, and ask you again. Then do
 what the old build allows — do not wait for them.
@@ -72,14 +73,14 @@ create on this page says so in its notes. A reload forgets it, so sign in again 
 | `enabled: true`  | Go on. Keep `running`, `capturing` and `features` for the steps below                                                                                                                          |
 
 `features.features` answers what the user's tweak includes and what you can drive, one entry
-per feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `HOOKS`,
+per feature (`MOCK_RULES`, `MODIFY_RULES`, `HEADER_RULES`, `REDIRECT_RULES`, `BLOCK_RULES`, `HOOKS`,
 `EDIT_BEFORE_SEND`, `PARTIAL_MATCHING`, `LOGPOINT`, ...). Read it before you build on anything
 outside the free features (SKILL.md, "Free features"). An entry with `available: false` is not
 possible for you: `reason: 'PLAN'` means the user's tweak does not include it, `'NOT_IN_SDK'`
 means the user can do it in tweak but you cannot. Tell the user which, and offer what is
 possible instead. A feature with no entry, or a build with no `features()`, is checked by
 pushing the rule: tweak refuses what it does not include (`PREMIUM_REQUIRED`, "Errors").
-`features.redirectTargetTypes` lists the Catch types tweak takes. Ignore any `premium` field:
+`features.redirectTargetTypes` lists the Catch types tweak takes, for a Redirect or a Block. Ignore any `premium` field:
 it says nothing about a given feature.
 
 ## 2. Find the request, through tweak
@@ -106,8 +107,8 @@ first; each request has its `url`, `method`, `contentType` (the response's), `re
 `requestPayload` and `responsePayload` (cut to `payloadChars`, 2000 by default, `truncated: true` when it was). Match
 `url` loosely first, then narrow. If the request the user means is not there, trigger it (the
 click, the search, the page it loads on) and search again; still missing means tweak cannot
-mock it — say so. If it is an image, a script, a stylesheet or a page load, it is a Redirect
-or header rule job, and those requests are never captured: for those two types only, the
+mock it — say so. If it is an image, a script, a stylesheet or a page load, it is a Redirect,
+Block or header rule job, and those requests are never captured: for those types only, the
 page's own resource list is where to look (`performance.getEntriesByType('resource')`).
 
 Start a Mock from the captured `responsePayload`: same keys, same nesting, only what the user
@@ -171,7 +172,7 @@ enabled rule that catches a request.
 
 `searchRules` answers `{ total, rules }`, best first. A rule with `catches: true` would catch
 that request; `answers: true` marks the Mock or Modify rule the page uses for it now (header
-rules and redirects all apply together). A header or Modify rule lists its `headers` by name
+rules, redirects and blocks all apply together). A header or Modify rule lists its `headers` by name
 and operation, never their values. Each rule carries its
 `label`, `notes`, `enabled`, `status`, `delay`, `hooks` and `collection`, and — only when it
 catches the request — its `responsePayload`: compare those with the ask. A rule found by
@@ -215,9 +216,9 @@ not show it to the user first, and do not ask permission to push what they alrea
 ```
 
 `createRules` takes up to 20 rules and creates all of them or none; `createMockRule(rule)`,
-`createModifyRule(rule)`, `createHeaderRule(rule)` and `createRedirectRule(rule)` take one and
-set its type. Here every field but `url` (and `redirectUrl` for a redirect, a header row for a
-header rule) has a default — a Modify rule's forward what the server sent — and
+`createModifyRule(rule)`, `createHeaderRule(rule)`, `createRedirectRule(rule)` and
+`createBlockRule(rule)` take one and set its type. Here every field but `url` (and `redirectUrl`
+for a redirect, a header row for a header rule) has a default — a Modify rule's forward what the server sent — and
 `responsePayload`, `requestPayload` and `outgoingRequestPayload` may be plain objects. Keep
 the `created[].id`s: they are how you change the rules later. When the answer has a
 `result.collection`, the rules landed in that collection (**"AI Generated"**); tell the user
@@ -226,7 +227,7 @@ that is where they are.
 ## 5. Make it apply
 
 Rules land switched on, but tweak applies them only on a tab where it is **running** — every
-type, header rules and redirects included. If
+type, header rules, redirects and blocks included. If
 `status().running` is false, run it — the Run button, for this tab:
 
 ```js
@@ -260,7 +261,7 @@ the page shows the change. Tell the user what you created, by its label, and whe
 | `UNSUPPORTED_RULE_TYPE` | An older build (step 0): hand that rule over as JSON (SKILL.md, step 6)                   |
 | `RULE_LIMIT_REACHED`    | Tell the user to delete rules in tweak or upgrade. Do not delete for them                 |
 | `RULE_NOT_FOUND`        | The id is wrong or the rule was deleted: `listRules()` gives the current ids              |
-| `RUN_LOCKED`            | A global header/redirect rule keeps tweak running: the user switches it off               |
+| `RUN_LOCKED`            | A global header/redirect/block rule keeps tweak running: the user switches it off         |
 | `AGENT_ACCESS_DISABLED` | The preflight's `enabled: false` row                                                      |
 | `TIMEOUT`               | tweak did not answer. Ask the user to reload the tab, then retry once                     |
 
@@ -268,7 +269,7 @@ Relay `warnings` to the user: they name fields tweak dropped or cut.
 
 ## API reference
 
-API version `7` (`tweak.version`), top frame only; older builds lack some methods (step 0).
+API version `8` (`tweak.version`), top frame only; older builds lack some methods (step 0).
 `window.tweak` is missing when the page already owned that
 name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data.
 
@@ -285,6 +286,7 @@ name; `window.__TWEAK_SDK__` is always there. `help()` returns this list as data
 | `createModifyRule(rule, { agent })`   | same                                                                                     |
 | `createHeaderRule(rule, { agent })`   | same                                                                                     |
 | `createRedirectRule(rule, { agent })` | same                                                                                     |
+| `createBlockRule(rule, { agent })`    | same                                                                                     |
 | `updateRule(id, changes, { agent })`  | `{ rule, warnings }`                                                                     |
 | `listRules(query)`                    | `{ rules: [{ id, type, url, label, enabled, collection? }] }`                            |
 | `searchRules(query)`                  | `{ total, rules }` — step 3; `{ requestUrl, method, text, type, enabled, limit }`        |

@@ -34,7 +34,7 @@ describe('lint-skills', () => {
   })
 
   it('finds the example rules it validates', () => {
-    const count = ['SKILL.md', 'reference/mock.md', 'reference/redirect.md', 'reference/headers.md']
+    const count = ['SKILL.md', 'reference/mock.md', 'reference/redirect.md', 'reference/headers.md', 'reference/block.md']
       .map((file) => exampleRules(readFileSync(path.join(SKILL, file), 'utf8')).length)
       .reduce((a, b) => a + b)
 

@@ -9,6 +9,7 @@ const FORCED_TYPE = {
   createModifyRule: 'PATCH',
   createHeaderRule: 'MODIFY_HEADERS',
   createRedirectRule: 'REDIRECT',
+  createBlockRule: 'BLOCK',
 }
 export const CREATE_METHODS = ['createRules', ...Object.keys(FORCED_TYPE)]
 

@@ -682,4 +682,78 @@ export default [
       }
     },
   },
+  {
+    id: 'browser-block-api',
+    mode: 'browser',
+    tags: ['block'],
+    prompt:
+      'Use tweak to make the products api on this page unreachable, so I can see how the page handles a ' +
+      'network error. No error response, the request must not get an answer at all.',
+    scenario: shop({ version: 8 }),
+    grade: (run, { check }) => {
+      const created = pushed(run, check)
+      const [rule] = created
+      check('exactly one rule', created.length === 1, created.length)
+      check('a Block rule', rule?.interceptionPolicy === 'BLOCK', rule?.interceptionPolicy)
+      check('catches the products api', rule && catchesUrl(rule, PRODUCTS_URL), rule?.url)
+      check(
+        'leaves the page itself alone',
+        rule && (!catchesUrl(rule, SHOP) || rule.redirectTargetType === 'XHR'),
+        [rule?.url, rule?.redirectTargetType],
+      )
+      check(
+        'ran tweak on the tab',
+        calls(run, 'setRunning').some((call) => call.args[0] === true),
+      )
+    },
+  },
+  {
+    id: 'browser-block-script',
+    mode: 'browser',
+    tags: ['block'],
+    prompt: 'Use tweak to stop the chat widget script from loading on this page.',
+    scenario: shop({
+      version: 8,
+      resources: [
+        ...shop().resources,
+        { name: 'https://widget.chatly.test/v2/loader.js', initiatorType: 'script' },
+      ],
+    }),
+    grade: (run, { check }) => {
+      const created = pushed(run, check)
+      const [rule] = created
+      check('exactly one rule', created.length === 1, created.length)
+      check('a Block rule', rule?.interceptionPolicy === 'BLOCK', rule?.interceptionPolicy)
+      check('catches the widget script', rule && catchesUrl(rule, 'https://widget.chatly.test/v2/loader.js'), rule?.url)
+      check('leaves the shop\'s own script alone', rule && !catchesUrl(rule, 'https://shop.test/assets/app.js'), rule?.url)
+      check('not a Mock (scripts are never fetch/XHR)', !created.some((entry) => entry.interceptionPolicy === 'MOCK'))
+    },
+  },
+  {
+    id: 'browser-block-older-build',
+    mode: 'browser',
+    tags: ['block', 'compat'],
+    prompt: 'Use tweak to stop the chat widget script from loading on this page.',
+    scenario: shop({
+      version: 7,
+      resources: [
+        ...shop().resources,
+        { name: 'https://widget.chatly.test/v2/loader.js', initiatorType: 'script' },
+      ],
+    }),
+    grade: (run, { check }) => {
+      check('called no method the build lacks', !missingSdkCalls(run).length, missingSdkCalls(run))
+      check(
+        'no Block rule pushed into a build that cannot take one',
+        !createdRules(run).some((rule) => rule.interceptionPolicy === 'BLOCK'),
+      )
+      const handed = jsonBlocks(run.text).some((block) => /"BLOCK"/.test(JSON.stringify(block)))
+      check('hands the Block rule over as JSON', handed)
+      check('links the import page', mentions(run.text, 'import.html?mode=JSON'))
+      check(
+        'tells the user their tweak is older than the skill',
+        mentions(run.finalText, 'older', 'update tweak', 'latest tweak', 'outdated', 'update'),
+      )
+    },
+  },
 ]

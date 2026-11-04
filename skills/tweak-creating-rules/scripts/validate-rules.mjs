@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Validates tweak rules (Mock, Modify, header and Redirect) in tweak's import format, before they are
+ * Validates tweak rules (Mock, Modify, header, Redirect and Block) in tweak's import format, before they are
  * imported or pushed through window.tweak. Zero dependencies, Node 18+.
  *
  *   node validate-rules.mjs rules.json     # a file: { "configurations": [...] }, an array or one rule
@@ -106,6 +106,7 @@ export const FIELDS = {
     'redirectTargetType',
     'headerRuleScope',
   ],
+  BLOCK: [...COMMON, 'requestPayload', 'responseHeaders', 'responsePayload', 'redirectTargetType', 'headerRuleScope'],
 };
 // where a rule sits in tweak: an exported rule carries these, and tweak drops them on the way in
 export const PLACEMENT = [
@@ -173,6 +174,19 @@ function checkRedirect(rule, error, warn) {
 
   if (rule.responsePayload !== undefined && !isString(rule.responsePayload)) {
     error('"responsePayload" must be a string (it is not read on a redirect)');
+  }
+}
+
+// a redirect with nowhere to go: the redirect's Catch and scope, no target
+function checkBlock(rule, error, warn) {
+  if (rule.redirectTargetType !== undefined && !TARGET_TYPES.includes(rule.redirectTargetType)) {
+    error(`"redirectTargetType" must be one of ${TARGET_TYPES.join(', ')}`);
+  }
+
+  checkScope(rule, error, warn);
+
+  if (rule.responsePayload !== undefined && !isString(rule.responsePayload)) {
+    error('"responsePayload" must be a string (it is not read on a block)');
   }
 }
 
@@ -424,7 +438,7 @@ export function validateRule(rule, where = 'rule') {
         : error(`"${key}" is not part of a ${type} rule; window.tweak refuses it`)
     );
 
-  ({ MOCK: checkMock, PATCH: checkMock, MODIFY_HEADERS: checkHeaders, REDIRECT: checkRedirect })[type](rule, error, warn);
+  ({ MOCK: checkMock, PATCH: checkMock, MODIFY_HEADERS: checkHeaders, REDIRECT: checkRedirect, BLOCK: checkBlock })[type](rule, error, warn);
 
   return { errors, warnings };
 }
