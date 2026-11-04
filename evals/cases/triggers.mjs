@@ -32,6 +32,7 @@ const SHOULD_NOT_TRIGGER = [
   ['fetch-auth-header', 'How do I set an Authorization header on a fetch call in JavaScript?'],
   ['express-header-middleware', 'Write an Express middleware that adds an X-Request-Id header to every response.'],
   ['tweak-error-copy', 'Tweak the error response in my Express handler so the message says "Try again later".'],
+  ['ublock-filter', 'Write a uBlock Origin filter that blocks the Hotjar script on every site I visit.'],
   ['hosts-block', 'Add a line to my /etc/hosts file that blocks ads.example.com.'],
   ['devtools-xhr-breakpoint', 'How do I set an XHR breakpoint in Chrome DevTools to pause on requests to /api/checkout?'],
 ]
