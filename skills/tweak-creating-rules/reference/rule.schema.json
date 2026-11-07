@@ -9,7 +9,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "MOCK",
-          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"; BLOCK cancels it in the browser, so the page sees a network error."
         },
         "url": {
           "type": "string",
@@ -166,7 +166,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "PATCH",
-          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"; BLOCK cancels it in the browser, so the page sees a network error."
         },
         "url": {
           "type": "string",
@@ -336,7 +336,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "MODIFY_HEADERS",
-          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"; BLOCK cancels it in the browser, so the page sees a network error."
         },
         "url": {
           "type": "string",
@@ -481,7 +481,7 @@
         "interceptionPolicy": {
           "type": "string",
           "const": "REDIRECT",
-          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"."
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"; BLOCK cancels it in the browser, so the page sees a network error."
         },
         "url": {
           "type": "string",
@@ -599,6 +599,127 @@
         "requestPayload",
         "responseHeaders",
         "redirectUrl"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "interceptionPolicy": {
+          "type": "string",
+          "const": "BLOCK",
+          "description": "MOCK answers the request itself; PATCH (Modify, not a free feature) sends it and changes the answer; MODIFY_HEADERS rewrites headers in the browser; REDIRECT sends the request to \"redirectUrl\"; BLOCK cancels it in the browser, so the page sees a network error."
+        },
+        "url": {
+          "type": "string",
+          "pattern": "\\S",
+          "description": "Matched against the request url: a substring, or a regular expression when \"isRgx\" is true."
+        },
+        "isRgx": {
+          "type": "boolean",
+          "description": "true reads \"url\" as a regular expression."
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "*",
+            "POST",
+            "GET",
+            "PUT",
+            "CONNECT",
+            "OPTIONS",
+            "PATCH",
+            "DELETE",
+            "HEAD",
+            "TRACE"
+          ],
+          "description": "The request method to match; * matches every method."
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 256,
+          "description": "What the rule is for, in markdown, shown on its row."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 10000,
+          "description": "Markdown documentation, shown in the rule's Notes tab."
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "requestPayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "responseHeaders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "header": {
+                "type": "string",
+                "pattern": "\\S"
+              },
+              "value": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "header",
+              "value"
+            ]
+          },
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "responsePayload": {
+          "type": "string",
+          "description": "Not read on this type; the import page requires it of every rule."
+        },
+        "redirectTargetType": {
+          "type": "string",
+          "enum": [
+            "ALL",
+            "XHR",
+            "DOCUMENT",
+            "IFRAME",
+            "SCRIPT",
+            "STYLESHEET",
+            "IMAGE",
+            "MEDIA",
+            "FONT"
+          ],
+          "description": "Which requests the block catches: ALL, or one resource type."
+        },
+        "headerRuleScope": {
+          "type": "string",
+          "enum": [
+            "ACTIVE_TAB",
+            "GLOBAL"
+          ],
+          "description": "ACTIVE_TAB applies while tweak runs on that tab; GLOBAL on every tab (window.tweak refuses it)."
+        }
+      },
+      "required": [
+        "interceptionPolicy",
+        "url",
+        "isRgx",
+        "method",
+        "status",
+        "delay",
+        "requestPayload",
+        "responseHeaders"
       ],
       "additionalProperties": false
     }

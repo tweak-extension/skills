@@ -15,6 +15,8 @@ const SHOULD_TRIGGER = [
   ['modify-one-field', 'With tweak, keep the real /api/account response but make its "plan" field say "free".'],
   ['header-auth', 'Use tweak to add an Authorization: Bearer test-token header to every request to api.example.com.'],
   ['header-strip-csp', 'Strip the Content-Security-Policy header from staging.example.com pages using the tweak extension.'],
+  ['block-script', 'Use tweak to block the Hotjar script so it never loads on staging.example.com.'],
+  ['block-offline-api', 'With tweak, make /api/orders fail with a network error, like the request never reached the server.'],
   ['edit-before-send', 'With tweak, pause the /api/checkout request so I can edit its body by hand before it is sent.'],
 ]
 
@@ -30,6 +32,8 @@ const SHOULD_NOT_TRIGGER = [
   ['fetch-auth-header', 'How do I set an Authorization header on a fetch call in JavaScript?'],
   ['express-header-middleware', 'Write an Express middleware that adds an X-Request-Id header to every response.'],
   ['tweak-error-copy', 'Tweak the error response in my Express handler so the message says "Try again later".'],
+  ['ublock-filter', 'Write a uBlock Origin filter that blocks the Hotjar script on every site I visit.'],
+  ['hosts-block', 'Add a line to my /etc/hosts file that blocks ads.example.com.'],
   ['devtools-xhr-breakpoint', 'How do I set an XHR breakpoint in Chrome DevTools to pause on requests to /api/checkout?'],
 ]
 

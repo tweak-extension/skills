@@ -260,4 +260,37 @@ export default [
       check('drops the live token', !JSON.stringify(rule ?? {}).includes('sk_live_9f8e7d6c5b4a'))
     },
   },
+  {
+    id: 'file-block-script',
+    mode: 'file',
+    tags: ['block'],
+    prompt: 'With tweak, stop the Google Analytics script from googletagmanager.com from loading on my site.',
+    grade: (run, { check }) => {
+      const [rule] = delivery(run, check, 1)
+      check('BLOCK', rule?.interceptionPolicy === 'BLOCK', rule?.interceptionPolicy)
+      check('catches the gtag script', /googletagmanager/.test(String(rule?.url)), rule?.url)
+      check(
+        'narrowed to scripts, or ALL',
+        ['SCRIPT', 'ALL'].includes(rule?.redirectTargetType ?? 'ALL'),
+        rule?.redirectTargetType,
+      )
+      check('no redirect target', !('redirectUrl' in (rule ?? {})))
+    },
+  },
+  {
+    // a status code is an answer, so a Mock; "no answer at all" is a Block
+    id: 'file-block-network-error',
+    mode: 'file',
+    tags: ['block'],
+    prompt:
+      'Use tweak so the POST /api/checkout request fails with a network error, as if the connection dropped. ' +
+      'No response at all.',
+    grade: (run, { check }) => {
+      const [rule] = delivery(run, check, 1)
+      check('BLOCK, not a Mock', rule?.interceptionPolicy === 'BLOCK', rule?.interceptionPolicy)
+      check('catches /api/checkout', String(rule?.url).includes('/api/checkout'), rule?.url)
+      check('method POST, or every method', ['POST', '*'].includes(rule?.method), rule?.method)
+      check('ACTIVE_TAB scope', (rule?.headerRuleScope ?? 'ACTIVE_TAB') === 'ACTIVE_TAB', rule?.headerRuleScope)
+    },
+  },
 ]

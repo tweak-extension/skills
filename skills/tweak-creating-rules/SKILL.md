@@ -1,6 +1,6 @@
 ---
 name: tweak-creating-rules
-description: Creates rules for the tweak browser extension from plain English, to mock a response, modify the real one, set or remove HTTP headers, or redirect requests. Use when the user asks to mock, stub, fake, simulate, modify, redirect or change headers of a web page's requests with tweak.
+description: Creates rules for the tweak browser extension from plain English, to mock a response, modify the real one, set or remove HTTP headers, redirect or block requests. Use when the user asks to mock, stub, fake, simulate, modify, redirect, block or change headers of a web page's requests with tweak.
 ---
 
 # Creating tweak rules
@@ -46,19 +46,22 @@ Decide this before anything else, because it changes every step after it.
 | The server's real response with something changed: one field, the status, a delay; or the request changed before it is sent | Modify (`PATCH`) | check access | [reference/modify.md](reference/modify.md)     |
 | A request or response header set, appended or removed                                        | Header (`MODIFY_HEADERS`)  | yes          | [reference/headers.md](reference/headers.md)   |
 | A request loaded from somewhere else: another server, a local build, a placeholder           | Redirect (`REDIRECT`)      | yes          | [reference/redirect.md](reference/redirect.md) |
+| A request that never leaves the browser: a network error, a script or image that never loads | Block (`BLOCK`)            | yes          | [reference/block.md](reference/block.md)       |
 | A response computed by code: random data, values derived from the request or the real body   | Mock or Modify + hook      | check access | [reference/hooks.md](reference/hooks.md)       |
 | To pause the request or its response and edit it **by hand**, live, before it goes on         | Mock or Modify + Edit before send | check access | [reference/edit-before-send.md](reference/edit-before-send.md) |
 
 - **Mock or Modify?** Modify when the answer must stay the server's own (live data, one field
   changed); Mock when it can be made up. When the user's tweak has no Modify, offer a Mock
   built from the real response instead.
+- **Block or Mock?** A status code (500, 404) is an answer, so a Mock. "Unreachable",
+  "offline", "network error" or "never loads" is a Block: the page gets no answer at all.
 - **Header or Modify?** A header-only ask is a header rule: free, applied by the browser to
   every request type, and it can set headers a page cannot (`User-Agent`, `Accept-Encoding`).
 - **"Pause it and let me edit it myself"** is Edit before send, a switch on a Mock or Modify
   rule (`isEditBeforeSendEnabled`), never "not possible". On a rule that already exists, switch
   it on there.
 - Mock and Modify only see fetch/XHR. Images, scripts, stylesheets, fonts and page loads take
-  a Redirect or a header rule.
+  a Redirect, a Block or a header rule.
 
 Every type writes the same object, tweak's import format, so one ask can need rules of
 several types. `{{variables}}` cannot be written by an agent: write the values out.
@@ -68,7 +71,7 @@ several types. `{{variables}}` cannot be written by an agent: write the values o
 - Mock rules: url, method, status, response body, response headers, delay, and body matching
   `EXACT` (the default) or `ANY`, a form body included.
 - Header rules: every operation, on the request or the response.
-- Redirect rules: every Catch type.
+- Redirect and Block rules: every Catch type.
 - Capturing and searching requests, running tweak, switching rules on or off, labels and notes.
 
 Anything else depends on the user's tweak: Modify, hooks, `PARTIAL` body matching,

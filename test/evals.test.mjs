@@ -110,7 +110,13 @@ describe('fake tweak', () => {
       (await sdk.createRedirectRule({ url: 'a', redirectUrl: '/b', headerRuleScope: 'GLOBAL' })).error.code,
       'INVALID_RULE',
     )
-    assert.equal((await sdk.createRules([{ ...RULE, interceptionPolicy: 'BLOCK' }])).error.code, 'UNSUPPORTED_RULE_TYPE')
+    assert.equal((await sdk.createRules([{ ...RULE, interceptionPolicy: 'BLOCKED' }])).error.code, 'UNSUPPORTED_RULE_TYPE')
+    assert.equal((await sdk.createBlockRule({ url: 'a', headerRuleScope: 'GLOBAL' })).error.code, 'INVALID_RULE')
+    assertMatches(
+      await sdk.createBlockRule({ url: 'a', redirectUrl: '/b' }),
+      { ok: false, error: { code: 'UNSUPPORTED_FIELD', message: stringContaining('"redirectUrl"') } },
+    )
+    assertMatches(await sdk.createBlockRule({ url: 'analytics.js', redirectTargetType: 'SCRIPT' }), { ok: true })
     // as window.tweak does: an unknown field is refused, an export's leftovers are dropped
     assertMatches(await sdk.createRules([{ ...RULE, bogus: 1 }]), {
       ok: false,
@@ -121,6 +127,15 @@ describe('fake tweak', () => {
       warnings: [],
     })
     assertMatches(await sdk.createRedirectRule({ url: 'a', redirectUrl: '/b', responsePayload: '{}' }), { ok: true })
+  })
+
+  it('takes Block rules from version 8 only, as older builds did', async () => {
+    const old = fake({ version: 7 })
+
+    assert.equal(old.sdk.createBlockRule, undefined)
+    assert.equal((await old.sdk.createRules([{ ...RULE, interceptionPolicy: 'BLOCK' }])).error.code, 'UNSUPPORTED_RULE_TYPE')
+    assert.equal((await old.sdk.features()).features.BLOCK_RULES, undefined)
+    assertMatches((await fake().sdk.features()).features.BLOCK_RULES, { available: true })
   })
 
   it('takes Modify rules only when the scenario includes them, and only when they change something', async () => {

@@ -3,7 +3,7 @@
  * eval case scripts through a scenario and that records every call for the graders.
  *
  * It is NOT the extension's builder: it refuses what the skill's own contract says tweak refuses
- * (url, redirect target, a feature the scenario's tweak does not include, GLOBAL from a page, a field outside the type's vocabulary,
+ * (url, redirect target, a scope, a feature the scenario's tweak does not include, GLOBAL from a page, a field outside the type's vocabulary,
  * a Modify rule that changes nothing, a header row the browser or the page API would refuse)
  * and nothing more. Whether tweak accepts the skill's examples is
  * the contract tests' job (src/__tests__/agent-skills.test.js in tweak-extension/tweak).
@@ -23,6 +23,7 @@ const FEATURES = [
   'MODIFY_RULES',
   'HEADER_RULES',
   'REDIRECT_RULES',
+  'BLOCK_RULES',
   'HOOKS',
   'EDIT_BEFORE_SEND',
   'COLLECTIONS',
@@ -42,6 +43,9 @@ const V1_METHODS = ['version', 'status', 'createRules', 'createMockRule', 'creat
 // what version 5 added: Modify and header rules
 const V5_METHODS = ['createModifyRule', 'createHeaderRule']
 const V5_TYPES = ['PATCH', 'MODIFY_HEADERS']
+// what version 8 added: Block rules
+const V8_METHODS = ['createBlockRule']
+const V8_TYPES = ['BLOCK']
 
 /** A urlencoded body as its fields, a repeated one as a list: what version 6 hands out. */
 function formFields(body) {
@@ -125,10 +129,12 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
     failNextCreate: scenario.failFirstCreate ?? null,
     nextId: 1,
   }
-  const version = scenario.version ?? 7
+  const version = scenario.version ?? 8
   const has = (name) => !state.unavailable.includes(name)
   // an older build answers features() without the entries it predates
-  const listed = FEATURES.filter((name) => !(scenario.omitFeatures ?? []).includes(name))
+  const listed = FEATURES.filter(
+    (name) => !(scenario.omitFeatures ?? []).includes(name) && (version >= 8 || name !== 'BLOCK_RULES'),
+  )
   const notIncluded = (where, what, instead) =>
     fail('PREMIUM_REQUIRED', `${where}: ${what} is not included in the user's tweak; ${instead}`)
 
@@ -151,8 +157,13 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       return { error: fail('INVALID_RULE', `${where}: not an object`) }
     }
     const type = forcedType ?? rule.interceptionPolicy ?? 'MOCK'
-    if (!FIELDS[type] || (version < 5 && V5_TYPES.includes(type))) {
-      const known = version < 5 ? 'MOCK and REDIRECT' : Object.keys(FIELDS).join(', ')
+    if (!FIELDS[type] || (version < 5 && V5_TYPES.includes(type)) || (version < 8 && V8_TYPES.includes(type))) {
+      const known =
+        version < 5
+          ? 'MOCK and REDIRECT'
+          : Object.keys(FIELDS)
+              .filter((name) => version >= 8 || !V8_TYPES.includes(name))
+              .join(', ')
       return { error: fail('UNSUPPORTED_RULE_TYPE', `${where}: only ${known} rules can be created`) }
     }
     if (typeof rule.url !== 'string' || !rule.url.trim()) {
@@ -193,6 +204,9 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
       if (rule.headerRuleScope === 'GLOBAL') {
         return { error: fail('INVALID_RULE', `${where}: "headerRuleScope" GLOBAL cannot be set from a page`) }
       }
+    }
+    if (type === 'BLOCK' && rule.headerRuleScope === 'GLOBAL') {
+      return { error: fail('INVALID_RULE', `${where}: "headerRuleScope" GLOBAL cannot be set from a page`) }
     }
     if ((rule.responseHook || rule.requestHook) && !has('HOOKS')) {
       return { error: notIncluded(where, 'a hook', 'write the values into responsePayload') }
@@ -333,6 +347,7 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
     createModifyRule: async (rule) => create([rule], 'PATCH'),
     createHeaderRule: async (rule) => create([rule], 'MODIFY_HEADERS'),
     createRedirectRule: async (rule) => create([rule], 'REDIRECT'),
+    createBlockRule: async (rule) => create([rule], 'BLOCK'),
     updateRule: async (id, changes = {}) => {
       const rule = findRule(id)
       if (!rule) {
@@ -390,7 +405,7 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
                 },
               }
             : {}),
-          ...(hit && rule.type !== 'MODIFY_HEADERS' ? { responsePayload: rule.responsePayload } : {}),
+          ...(hit && ['MOCK', 'PATCH'].includes(rule.type) ? { responsePayload: rule.responsePayload } : {}),
         }))
       return { ok: true, total: rules.length, rules }
     },
@@ -410,7 +425,12 @@ export function createFakeTweak(scenario = {}, log = () => {}) {
 
   const sdk = { version }
   Object.entries(methods)
-    .filter(([name]) => (version >= 4 || V1_METHODS.includes(name)) && (version >= 5 || !V5_METHODS.includes(name)))
+    .filter(
+      ([name]) =>
+        (version >= 4 || V1_METHODS.includes(name)) &&
+        (version >= 5 || !V5_METHODS.includes(name)) &&
+        (version >= 8 || !V8_METHODS.includes(name)),
+    )
     .forEach(([name, method]) => {
       sdk[name] = (...args) => {
         const result = method(...args)

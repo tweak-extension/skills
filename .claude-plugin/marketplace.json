@@ -9,7 +9,7 @@
     {
       "name": "tweak",
       "source": ".",
-      "description": "Creates tweak rules (Mock, Modify, headers, Redirect) from plain English, in the browser or as an import file."
+      "description": "Creates tweak rules (Mock, Modify, headers, Redirect, Block) from plain English, in the browser or as an import file."
     }
   ]
 }
